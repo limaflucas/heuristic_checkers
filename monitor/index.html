@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkers Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090f;--bg1:#0f0f1e;--bg2:#151528;--bg3:#1c1c35;
+  --glass:rgba(255,255,255,0.04);--glass-border:rgba(255,255,255,0.08);
+  --accent:#7c3aed;--accent2:#5b21b6;--teal:#0d9488;--amber:#f59e0b;
+  --red:#ef4444;--red-light:#fca5a5;
+  --board-dark:#b45309;--board-light:#fde68a;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#475569;
+  --r:12px;--r2:8px;
+}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+body{display:flex;flex-direction:column}
+
+/* ── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:99px}
+
+/* ── Header ─────────────────────────────────────────── */
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:56px;flex-shrink:0;
+  border-bottom:1px solid var(--glass-border);
+  background:rgba(9,9,15,0.8);backdrop-filter:blur(12px);
+  position:relative;z-index:10;
+}
+#logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1rem;letter-spacing:-.02em}
+#logo-icon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#a855f7);
+  display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 16px rgba(124,58,237,.4)}
+#header-right{display:flex;align-items:center;gap:12px}
+#api-url-input{
+  background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--r2);
+  color:var(--text2);padding:4px 10px;font-size:12px;font-family:'JetBrains Mono',monospace;
+  width:220px;outline:none;transition:.2s;
+}
+#api-url-input:focus{border-color:var(--accent);color:var(--text)}
+#status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── Views ──────────────────────────────────────────── */
+#app{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;opacity:0;transition:opacity .3s}
+.view.active{display:flex;opacity:1;flex-direction:column}
+
+/* ── Lobby ──────────────────────────────────────────── */
+#lobby{padding:28px 32px;gap:24px}
+#lobby-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#lobby-title{font-size:1.4rem;font-weight:700;letter-spacing:-.03em}
+#game-count-badge{
+  background:var(--accent);border-radius:99px;padding:4px 12px;
+  font-size:12px;font-weight:700;letter-spacing:.05em;color:#fff!important;
+}
+#games-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:16px;padding-bottom:32px;
+}
+.game-card{
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--r);
+  padding:20px;cursor:pointer;transition:.25s ease;position:relative;overflow:hidden;
+}
+.game-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(168,85,247,.03));
+  opacity:0;transition:.25s;
+}
+.game-card:hover{border-color:rgba(124,58,237,.4);transform:translateY(-2px);
+  box-shadow:0 8px 32px rgba(124,58,237,.15)}
+.game-card:hover::before{opacity:1}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.vs-block{display:flex;flex-direction:column;gap:6px}
+.player-row{display:flex;align-items:center;gap:8px}
+.piece-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.piece-dot.red{background:radial-gradient(circle at 30% 30%,#f87171,#dc2626);box-shadow:0 1px 4px rgba(220,38,38,.4)}
+.piece-dot.black{background:radial-gradient(circle at 30% 30%,#6b7280,#1f2937);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.player-name{font-weight:600;font-size:.9rem}
+.vs-sep{font-size:.7rem;color:var(--text3);padding-left:20px}
+.status-badge{
+  border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;flex-shrink:0;
+}
+.badge-progress{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(52,211,153,.2)}
+.badge-red-wins{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(248,113,113,.2)}
+.badge-black-wins{background:rgba(107,114,128,.15);color:#9ca3af;border:1px solid rgba(156,163,175,.2)}
+.badge-draw{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.card-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+.stat-box{
+  background:rgba(0,0,0,.2);border-radius:var(--r2);padding:8px 10px;
+}
+.stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.stat-value{font-size:1rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+.card-timer{color:var(--teal)}
+.card-footer{display:flex;align-items:center;justify-content:space-between}
+.piece-counts{display:flex;gap:12px;font-size:12px;color:var(--text2)}
+.pc-group{display:flex;align-items:center;gap:4px}
+.watch-btn{
+  background:linear-gradient(135deg,var(--accent),#6d28d9);
+  border:none;color:#fff;border-radius:var(--r2);padding:7px 16px;
+  font-size:12px;font-weight:600;cursor:pointer;transition:.2s;letter-spacing:.03em;
+}
+.watch-btn:hover{opacity:.85;transform:scale(1.02)}
+#lobby-empty{
+  text-align:center;color:var(--text3);padding:64px 0;
+  display:none;flex-direction:column;align-items:center;gap:12px;
+}
+#lobby-empty .icon{font-size:3rem}
+
+/* ── Board view ─────────────────────────────────────── */
+#board-view{flex-direction:row;overflow:hidden}
+#board-sidebar-left,#board-sidebar-right{
+  width:220px;flex-shrink:0;display:flex;flex-direction:column;
+  padding:16px;gap:12px;overflow-y:auto;
+  border-right:1px solid var(--glass-border);
+}
+#board-sidebar-right{border-right:none;border-left:1px solid var(--glass-border)}
+#board-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:12px;min-width:0}
+
+/* Player panels */
+.player-panel{
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--r);
+  padding:14px;display:flex;flex-direction:column;gap:8px;
+}
+.panel-name{font-weight:700;font-size:1rem;letter-spacing:-.02em}
+.panel-role{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.panel-pieces{display:flex;flex-wrap:wrap;gap:4px;min-height:20px}
+.panel-piece{width:18px;height:18px;border-radius:50%;transition:.3s}
+.panel-piece.red{background:radial-gradient(circle at 30% 30%,#f87171,#dc2626)}
+.panel-piece.black{background:radial-gradient(circle at 30% 30%,#6b7280,#1f2937)}
+.panel-piece.king::after{content:'♛';font-size:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);height:100%}
+.captured-label{font-size:11px;color:var(--text3);margin-top:2px}
+.captured-row{display:flex;flex-wrap:wrap;gap:3px;min-height:16px}
+.cap-dot{width:14px;height:14px;border-radius:50%;opacity:.5}
+.cap-dot.red{background:#dc2626}.cap-dot.black{background:#1f2937;border:1px solid #374151}
+.turn-indicator{
+  display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:6px 10px;border-radius:var(--r2);background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.2);
+}
+.turn-dot{width:8px;height:8px;border-radius:50%;animation:pulse 1.2s infinite}
+
+/* Board */
+#board-wrap{position:relative}
+#board{
+  display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  border-radius:var(--r);overflow:hidden;
+  box-shadow:0 0 0 3px #92400e,0 0 0 6px #451a03,0 8px 40px rgba(0,0,0,.6);
+  width:min(540px,min(calc(100vw - 500px),calc(100vh - 160px)));
+  height:min(540px,min(calc(100vw - 500px),calc(100vh - 160px)));
+}
+.cell{display:flex;align-items:center;justify-content:center;position:relative}
+.cell.light{background:#fde68a}.cell.dark{background:#92400e}
+.cell.light:nth-child(odd){background:#fef3c7}
+.cell.highlight-last-from{box-shadow:inset 0 0 0 2px rgba(16,185,129,.7)}
+.cell.highlight-last-to{box-shadow:inset 0 0 0 3px #10b981;background:#064e3b80!important}
+.piece-el{
+  width:78%;height:78%;border-radius:50%;cursor:default;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .2s;
+  position:relative;
+}
+.piece-el.red{
+  background:radial-gradient(circle at 30% 30%,#fca5a5,#dc2626);
+  box-shadow:0 2px 0 #7f1d1d,0 3px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.piece-el.black{
+  background:radial-gradient(circle at 30% 30%,#9ca3af,#1f2937);
+  box-shadow:0 2px 0 #030712,0 3px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.piece-el.king{border:2px solid rgba(251,191,36,.8);box-shadow:0 0 10px rgba(251,191,36,.3),0 2px 8px rgba(0,0,0,.5)}
+.piece-el.king::after{content:'♛';font-size:calc(min(540px,min(calc(100vw-500px),calc(100vh-160px)))/8*.35);color:rgba(251,191,36,.9);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+
+/* Board top/bottom labels */
+.board-label{
+  font-size:13px;font-weight:600;color:var(--text2);text-align:center;
+  padding:4px 0;width:100%;max-width:540px;
+}
+
+/* Status bar */
+#game-status-bar{
+  display:flex;align-items:center;gap:16px;
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--r);
+  padding:10px 16px;width:100%;max-width:600px;
+}
+#game-elapsed{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--teal)}
+#game-status-text{font-size:13px;color:var(--text2);flex:1}
+#game-streaming-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.5s infinite}
+
+/* Back button & breadcrumb */
+#board-topbar{
+  display:flex;align-items:center;gap:12px;padding:10px 16px;
+  border-bottom:1px solid var(--glass-border);flex-shrink:0;
+  width:100%;font-size:13px;color:var(--text2);
+}
+#back-btn{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:var(--r2);padding:5px 12px;font-size:12px;font-weight:600;
+  color:var(--text);cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px;
+}
+#back-btn:hover{background:var(--bg3);border-color:var(--accent)}
+#board-title{font-weight:600;color:var(--text)}
+.sep{color:var(--text3)}
+
+/* Sidebar items */
+.side-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:4px}
+#move-log{display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex:1}
+.move-entry{
+  background:rgba(0,0,0,.2);border-radius:6px;padding:6px 10px;
+  font-size:12px;font-family:'JetBrains Mono',monospace;border-left:2px solid transparent;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.move-entry.red-move{border-left-color:#ef4444}
+.move-entry.black-move{border-left-color:#6b7280}
+.move-entry .mn{color:var(--text3);margin-right:4px}
+.move-entry .cap-icon{color:var(--amber)}
+.conn-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:8px 0}
+.conn-dot{width:7px;height:7px;border-radius:50%}
+.conn-dot.ok{background:#22c55e;box-shadow:0 0 4px #22c55e}
+.conn-dot.err{background:#ef4444}
+.conn-dot.connecting{background:var(--amber);animation:pulse 1s infinite}
+
+/* ── Responsive collapse ─────────────────────────────── */
+@media(max-width:900px){
+  #board-sidebar-left,#board-sidebar-right{width:160px;padding:10px}
+}
+@media(max-width:700px){
+  #board-sidebar-right{display:none}
+  #board-sidebar-left{width:140px;padding:8px}
+  #board{width:calc(100vw - 160px);height:calc(100vw - 160px)}
+}
+/* ── New-Game modal ─────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg2);border:1px solid var(--glass-border);border-radius:16px;
+  padding:28px;width:420px;max-width:90vw;
+  box-shadow:0 24px 80px rgba(0,0,0,.6);
+  transform:translateY(12px);transition:transform .25s;
+}
+.modal-overlay.open .modal{transform:none}
+.modal-title{font-size:1.1rem;font-weight:700;letter-spacing:-.02em;margin-bottom:20px}
+.player-config{margin-bottom:16px}
+.player-config-label{
+  font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:8px;
+}
+.type-tabs{display:flex;gap:6px;margin-bottom:10px}
+.type-tab{
+  background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--r2);
+  color:var(--text2);padding:5px 12px;font-size:12px;font-weight:600;
+  cursor:pointer;transition:.15s;outline:none;
+}
+.type-tab:hover{border-color:var(--accent);color:var(--text)}
+.type-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.name-input{
+  width:100%;background:var(--bg3);border:1px solid var(--glass-border);
+  border-radius:var(--r2);color:var(--text);padding:8px 12px;
+  font-size:13px;font-family:inherit;outline:none;transition:.2s;
+}
+.name-input:focus{border-color:var(--accent)}
+.name-input:read-only{opacity:.5}
+.modal-divider{display:flex;align-items:center;gap:12px;margin:4px 0 16px;color:var(--text3);font-size:12px}
+.modal-divider::before,.modal-divider::after{content:'';flex:1;height:1px;background:var(--glass-border)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.modal-btn{
+  border:1px solid var(--glass-border);background:var(--bg3);border-radius:var(--r2);
+  color:var(--text2);padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:.18s;
+}
+.modal-btn:hover{background:var(--bg3);color:var(--text)}
+.modal-btn.primary{
+  background:linear-gradient(135deg,var(--accent),#6d28d9);border-color:transparent;color:#fff;
+}
+.modal-btn.primary:hover{opacity:.85}
+#new-game-btn{
+  background:linear-gradient(135deg,var(--accent),#6d28d9);
+  border:none;color:#fff;border-radius:var(--r2);padding:7px 16px;
+  font-size:12px;font-weight:700;cursor:pointer;transition:.2s;letter-spacing:.03em;
+  display:flex;align-items:center;gap:6px;
+}
+#new-game-btn:hover{opacity:.85;transform:scale(1.02)}
+</style>
+</head>
+<body>
+
+<header id="header">
+  <div id="logo">
+    <div id="logo-icon">♟</div>
+    Checkers Monitor
+  </div>
+  <div id="header-right">
+    <input id="api-url-input" type="text" value="http://localhost:8080" placeholder="API base URL" title="API base URL">
+    <div id="status-dot"></div>
+  </div>
+</header>
+
+<div id="app">
+
+  <!-- ── Lobby ─────────────────────────────────── -->
+  <div id="lobby" class="view active">
+    <div id="lobby-header">
+      <div id="lobby-title">Active Games <span id="game-count-badge">0</span></div>
+      <button id="new-game-btn" onclick="openNewGame()">＋ New Game</button>
+    </div>
+    <div id="lobby-empty" style="display:none">
+      <div class="icon">♟</div>
+      <div>No active games</div>
+      <div style="font-size:13px;color:var(--text3)">POST /api/v1/games to start one</div>
+    </div>
+    <div id="games-grid"></div>
+  </div>
+
+  <!-- ── Board view ─────────────────────────────── -->
+  <div id="board-view" class="view">
+    <div style="display:flex;align-items:center;gap:0;border-bottom:1px solid var(--glass-border);flex-shrink:0">
+      <div id="board-topbar">
+        <button id="back-btn" onclick="showLobby()">← Lobby</button>
+        <span class="sep">/</span>
+        <span id="board-title">…</span>
+        <span class="sep" style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:12px" id="game-id-label"></span>
+      </div>
+    </div>
+    <div style="display:flex;flex:1;overflow:hidden">
+
+      <!-- Left sidebar: Black player + move log -->
+      <div id="board-sidebar-left">
+        <div class="player-panel" id="panel-black">
+          <div class="panel-role">Black (top)</div>
+          <div class="panel-name" id="black-name">—</div>
+          <div class="side-section-title" style="margin-top:4px">Remaining</div>
+          <div class="panel-pieces" id="black-pieces"></div>
+          <div class="captured-label">Captured</div>
+          <div class="captured-row" id="black-captured"></div>
+        </div>
+
+        <div class="player-panel" id="panel-red">
+          <div class="panel-role">Red (bottom)</div>
+          <div class="panel-name" id="red-name">—</div>
+          <div class="side-section-title" style="margin-top:4px">Remaining</div>
+          <div class="panel-pieces" id="red-pieces"></div>
+          <div class="captured-label">Captured</div>
+          <div class="captured-row" id="red-captured"></div>
+        </div>
+
+        <div class="turn-indicator" id="turn-indicator">
+          <div class="turn-dot" id="turn-dot"></div>
+          <span id="turn-label">—'s turn</span>
+        </div>
+
+        <div class="conn-status">
+          <div class="conn-dot connecting" id="conn-dot"></div>
+          <span id="conn-label">Connecting…</span>
+        </div>
+      </div>
+
+      <!-- Center: Board -->
+      <div id="board-center">
+        <div class="board-label" id="top-label">Black ▲</div>
+        <div id="board-wrap">
+          <div id="board"></div>
+        </div>
+        <div class="board-label" id="bottom-label">Red ▼</div>
+
+        <div id="game-status-bar">
+          <div id="game-streaming-dot"></div>
+          <div id="game-elapsed">00:00</div>
+          <div id="game-status-text">Waiting for connection…</div>
+        </div>
+      </div>
+
+      <!-- Right sidebar: move log -->
+      <div id="board-sidebar-right">
+        <div class="side-section-title" style="padding-top:4px">Move History</div>
+        <div id="move-log"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ── New-Game Modal ─────────────────────────────────── -->
+<div class="modal-overlay" id="new-game-modal">
+  <div class="modal">
+    <div class="modal-title">＋ Start New Game</div>
+
+    <!-- Red player -->
+    <div class="player-config">
+      <div class="player-config-label"><span style="color:#f87171">●</span> Red Player</div>
+      <div class="type-tabs" id="red-tabs">
+        <button class="type-tab active" onclick="setType('red','human',this)">Human</button>
+        <button class="type-tab" onclick="setType('red','bfs',this)">BFS Bot</button>
+        <button class="type-tab" onclick="setType('red','dfs',this)">DFS Bot</button>
+      </div>
+      <input id="red-name-input" class="name-input" type="text" placeholder="Player name">
+    </div>
+
+    <div class="modal-divider">VS</div>
+
+    <!-- Black player -->
+    <div class="player-config">
+      <div class="player-config-label"><span style="color:#9ca3af">●</span> Black Player</div>
+      <div class="type-tabs" id="black-tabs">
+        <button class="type-tab active" onclick="setType('black','human',this)">Human</button>
+        <button class="type-tab" onclick="setType('black','bfs',this)">BFS Bot</button>
+        <button class="type-tab" onclick="setType('black','dfs',this)">DFS Bot</button>
+      </div>
+      <input id="black-name-input" class="name-input" type="text" placeholder="Player name">
+    </div>
+
+    <div class="modal-footer">
+      <button class="modal-btn" onclick="closeNewGame()">Cancel</button>
+      <button class="modal-btn primary" onclick="submitNewGame()">Start Game →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────────
+let API = () => document.getElementById('api-url-input').value.replace(/\/$/, '');
+
+// ── State ────────────────────────────────────────────
+let currentGameId = null;
+let sseSource = null;
+let elapsedInterval = null;
+let gameStartTime = null;
+let lobbyInterval = null;
+let lastBoard = null;    // last received board for diff highlighting
+let lastFromACF = null;
+let lastToACF = null;
+
+// ── Routing ──────────────────────────────────────────
+function showLobby() {
+  closeBoardConnection();
+  show('lobby');
+  startLobbyPolling();
+}
+
+function showBoard(gameId) {
+  stopLobbyPolling();
+  currentGameId = gameId;
+  show('board-view');
+  connectSSE(gameId);
+}
+
+function show(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Lobby polling ────────────────────────────────────
+function startLobbyPolling() {
+  fetchGames();
+  lobbyInterval = setInterval(fetchGames, 3000);
+}
+
+function stopLobbyPolling() {
+  clearInterval(lobbyInterval);
+  lobbyInterval = null;
+}
+
+async function fetchGames() {
+  try {
+    const res = await fetch(`${API()}/api/v1/games`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    renderLobby(data.games || []);
+    setOnline(true);
+  } catch(e) {
+    setOnline(false);
+  }
+}
+
+// Per-card elapsed timers
+let cardTimers = {};
+function startCardTimers(games) {
+  Object.values(cardTimers).forEach(clearInterval);
+  cardTimers = {};
+  games.forEach(g => {
+    const el = document.getElementById(`ct-${g.id}`);
+    if (!el) return;
+    const start = new Date(g.start_time);
+    const update = () => {
+      const diff = g.status === 'in_progress' ? ((Date.now() - start) / 1000) : g.elapsed_sec;
+      el.textContent = formatTime(diff);
+    };
+    update();
+    if (g.status === 'in_progress') {
+      cardTimers[g.id] = setInterval(update, 1000);
+    }
+  });
+}
+
+function renderLobby(games) {
+  const badge = document.getElementById('game-count-badge');
+  const grid = document.getElementById('games-grid');
+  const empty = document.getElementById('lobby-empty');
+
+  badge.textContent = games.length;
+
+  if (games.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Preserve existing cards, update or add
+  const existing = new Set([...grid.querySelectorAll('.game-card')].map(c => c.dataset.id));
+  const incoming = new Set(games.map(g => g.id));
+
+  // Remove stale
+  existing.forEach(id => {
+    if (!incoming.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove();
+  });
+
+  games.forEach(g => {
+    let card = grid.querySelector(`[data-id="${g.id}"]`);
+    const html = cardHTML(g);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'game-card';
+      card.dataset.id = g.id;
+      card.onclick = () => watchGame(g.id);
+      grid.appendChild(card);
+    }
+    card.innerHTML = html;
+  });
+
+  startCardTimers(games);
+}
+
+function cardHTML(g) {
+  const capRed = Math.max(0, 12 - g.red_men - g.red_kings);
+  const capBlack = Math.max(0, 12 - g.black_men - g.black_kings);
+  return `
+    <div class="card-top">
+      <div class="vs-block">
+        <div class="player-row"><div class="piece-dot black"></div><div class="player-name">${esc(g.black_player)}</div></div>
+        <div class="vs-sep">vs</div>
+        <div class="player-row"><div class="piece-dot red"></div><div class="player-name">${esc(g.red_player)}</div></div>
+      </div>
+      <div class="status-badge ${statusBadgeClass(g.status)}">${statusText(g.status)}</div>
+    </div>
+    <div class="card-stats">
+      <div class="stat-box"><div class="stat-label">Time</div><div class="stat-value card-timer" id="ct-${g.id}">…</div></div>
+      <div class="stat-box"><div class="stat-label">Moves</div><div class="stat-value">${g.move_count}</div></div>
+      <div class="stat-box"><div class="stat-label">Turn</div><div class="stat-value" style="font-size:.8rem;color:${g.turn==='red'?'#f87171':'#9ca3af'}">${g.status==='in_progress'?cap(g.turn):'—'}</div></div>
+    </div>
+    <div class="card-footer">
+      <div class="piece-counts">
+        <div class="pc-group"><div class="piece-dot red" style="width:10px;height:10px"></div> ${g.red_men}m ${g.red_kings}k <span style="color:var(--text3)">-${capRed}</span></div>
+        <div class="pc-group"><div class="piece-dot black" style="width:10px;height:10px"></div> ${g.black_men}m ${g.black_kings}k <span style="color:var(--text3)">-${capBlack}</span></div>
+      </div>
+      <button class="watch-btn">Watch →</button>
+    </div>`;
+}
+
+function watchGame(id) {
+  showBoard(id);
+}
+
+// ── Board SSE connection ──────────────────────────────
+function connectSSE(gameId) {
+  document.getElementById('board-title').textContent = 'Loading…';
+  document.getElementById('game-id-label').textContent = `#${gameId}`;
+  setConnStatus('connecting', 'Connecting…');
+
+  if (sseSource) { sseSource.close(); sseSource = null; }
+
+  const url = `${API()}/api/v1/games/${gameId}/watch`;
+  sseSource = new EventSource(url);
+
+  sseSource.addEventListener('board', e => {
+    const board = JSON.parse(e.data);
+    updateBoard(board);
+    setConnStatus('ok', 'Live');
+  });
+
+  sseSource.onerror = () => {
+    setConnStatus('err', 'Reconnecting…');
+  };
+}
+
+function closeBoardConnection() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  clearInterval(elapsedInterval); elapsedInterval = null;
+  lastBoard = null; lastFromACF = null; lastToACF = null;
+}
+
+// ── Board rendering ───────────────────────────────────
+function updateBoard(board) {
+  // Player names
+  document.getElementById('black-name').textContent = board.black_player;
+  document.getElementById('red-name').textContent = board.red_player;
+  document.getElementById('board-title').textContent = `${board.red_player} vs ${board.black_player}`;
+  document.getElementById('top-label').textContent = `${board.black_player}  (Black)`;
+  document.getElementById('bottom-label').textContent = `${board.red_player}  (Red)`;
+
+  // Piece panels
+  renderPiecePanels(board);
+
+  // Turn indicator
+  const turn = board.turn;
+  const dot = document.getElementById('turn-dot');
+  dot.style.background = turn === 'red' ? '#ef4444' : '#6b7280';
+  dot.style.boxShadow = `0 0 6px ${turn === 'red' ? '#ef4444' : '#6b7280'}`;
+  document.getElementById('turn-label').textContent =
+    board.status === 'in_progress' ? `${turn === 'red' ? board.red_player : board.black_player}'s turn` : '—';
+
+  // Status
+  document.getElementById('game-status-text').textContent = humanStatus(board.status);
+
+  // Board
+  const moves = board.pieces ? [] : [];
+  // Detect last move for highlighting from pieces diff
+  if (lastBoard && board.status === 'in_progress') {
+    // We track last from/to via the move history
+  }
+
+  renderBoardGrid(board);
+
+  // Elapsed timer
+  if (board.status === 'in_progress') {
+    gameStartTime = new Date(board.start_time);
+    clearInterval(elapsedInterval);
+    elapsedInterval = setInterval(() => {
+      const s = (Date.now() - gameStartTime) / 1000;
+      document.getElementById('game-elapsed').textContent = formatTime(s);
+    }, 1000);
+  } else {
+    clearInterval(elapsedInterval);
+    document.getElementById('game-elapsed').textContent = formatTime(board.elapsed_seconds);
+  }
+
+  // Move log (right sidebar)
+  if (board.pieces) updateMoveLog(board);
+
+  lastBoard = board;
+}
+
+function renderBoardGrid(board) {
+  const boardEl = document.getElementById('board');
+  // Build piece lookup: key = "row-col" → piece value
+  const pieceMap = {};
+  if (board.pieces) {
+    board.pieces.forEach(p => { pieceMap[`${p.row}-${p.col}`] = p; });
+  }
+
+  // Detect last from/to from status
+  let lf = -1, lt = -1;
+  if (board.matrix) {
+    // Use matrix directly; last move would need the events — we'll use a simpler approach:
+    // track lastFrom/lastTo via the first event that differs from last render
+    if (lastBoard && lastBoard.pieces) {
+      // find squares that changed
+      const prev = {};
+      lastBoard.pieces.forEach(p => { prev[`${p.row}-${p.col}`] = p; });
+      let newSq = null;
+      Object.entries(pieceMap).forEach(([k, p]) => {
+        if (!prev[k]) newSq = k;
+      });
+      if (newSq) { const [r,c] = newSq.split('-'); lt = parseInt(r)*8+parseInt(c); }
+    }
+
+    const cells = boardEl.children;
+    const totalCells = 64;
+
+    // If board is empty, build it
+    if (boardEl.children.length !== 64) {
+      boardEl.innerHTML = '';
+      for (let i = 0; i < 64; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        boardEl.appendChild(cell);
+      }
+    }
+
+    // Update each cell
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const idx = row * 8 + col;
+        const cell = boardEl.children[idx];
+        const dark = (row + col) % 2 === 1;
+        cell.className = `cell ${dark ? 'dark' : 'light'}`;
+        cell.innerHTML = '';
+
+        if (!dark) continue;
+
+        const piece = pieceMap[`${row}-${col}`];
+        if (!piece) continue;
+
+        const el = document.createElement('div');
+        el.className = `piece-el ${piece.color}${piece.king ? ' king' : ''}`;
+        cell.appendChild(el);
+      }
+    }
+  }
+}
+
+function renderPiecePanels(board) {
+  const capRed   = Math.max(0, 12 - board.red_men   - board.red_kings);
+  const capBlack = Math.max(0, 12 - board.black_men - board.black_kings);
+
+  renderPieceDots('red-pieces',   board.red_men,   board.red_kings,   'red');
+  renderPieceDots('black-pieces', board.black_men, board.black_kings, 'black');
+  renderCaptured('red-captured',   capRed,   'red');
+  renderCaptured('black-captured', capBlack, 'black');
+}
+
+function renderPieceDots(elId, men, kings, color) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  for (let i = 0; i < men; i++) {
+    const d = document.createElement('div');
+    d.className = `panel-piece ${color}`;
+    el.appendChild(d);
+  }
+  for (let i = 0; i < kings; i++) {
+    const d = document.createElement('div');
+    d.className = `panel-piece ${color} king`;
+    el.appendChild(d);
+  }
+}
+
+function renderCaptured(elId, count, color) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const d = document.createElement('div');
+    d.className = `cap-dot ${color}`;
+    el.appendChild(d);
+  }
+}
+
+let lastMoveCount = -1;
+async function updateMoveLog(board) {
+  try {
+    const res = await fetch(`${API()}/api/v1/games/${board.game_id}/moves`);
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    // Quick optimisation: only re-render if count changed
+    if (data.total === lastMoveCount && lastMoveCount > 0) return;
+    lastMoveCount = data.total;
+
+    const logEl = document.getElementById('move-log');
+    logEl.innerHTML = '';
+    
+    // Sort moves perfectly (newest top if we want, or oldest top. Based on overflow-y:auto we usually want newest at bottom or top)
+    const moves = data.moves || [];
+    moves.sort((a,b) => b.move_number - a.move_number); // newest first (top)
+    
+    moves.forEach(m => {
+      const div = document.createElement('div');
+      div.className = `move-entry ${m.player}-move`;
+      let txt = `<span class="mn">${m.move_number}.</span> ${m.from_acf}→${m.to_acf}`;
+      if (m.captures_acf && m.captures_acf.length > 0) {
+        txt += ` <span class="cap-icon">⚔</span>`;
+      }
+      if (m.promoted) txt += ` ♛`;
+      div.innerHTML = txt;
+      logEl.appendChild(div);
+    });
+  } catch (e) {
+    console.warn("Failed to update move log:", e);
+  }
+}
+
+
+// ── Utilities ─────────────────────────────────────────
+function formatTime(s) {
+  if (s < 0) s = 0;
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function statusBadgeClass(s) {
+  return {in_progress:'badge-progress',red_wins:'badge-red-wins',black_wins:'badge-black-wins',draw:'badge-draw'}[s]||'badge-progress';
+}
+function statusText(s) {
+  return {in_progress:'IN PROGRESS',red_wins:'RED WINS',black_wins:'BLACK WINS',draw:'DRAW'}[s]||s.toUpperCase();
+}
+function humanStatus(s) {
+  return {in_progress:'Game in progress',red_wins:'Red player wins!',black_wins:'Black player wins!',draw:'Game drawn (40-move rule)'}[s]||s;
+}
+function cap(s) { return s ? s[0].toUpperCase()+s.slice(1) : s; }
+function esc(s) { const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+function setOnline(ok) {
+  const d = document.getElementById('status-dot');
+  d.style.background = ok ? '#22c55e' : '#ef4444';
+  d.style.boxShadow = ok ? '0 0 6px #22c55e' : '0 0 6px #ef4444';
+}
+function setConnStatus(state, label) {
+  const dot = document.getElementById('conn-dot');
+  dot.className = `conn-dot ${state}`;
+  document.getElementById('conn-label').textContent = label;
+}
+
+// ── Boot ──────────────────────────────────────────────
+showLobby();
+
+// ── New-Game modal ────────────────────────────────────
+const playerTypes = { red: 'human', black: 'human' };
+
+function openNewGame() {
+  document.getElementById('new-game-modal').classList.add('open');
+}
+function closeNewGame() {
+  document.getElementById('new-game-modal').classList.remove('open');
+}
+
+function setType(side, type, btn) {
+  playerTypes[side] = type;
+  document.querySelectorAll(`#${side}-tabs .type-tab`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const input = document.getElementById(`${side}-name-input`);
+  if (type === 'human') {
+    input.readOnly = false;
+    if (['BFS Bot','DFS Bot'].includes(input.value)) input.value = '';
+    input.placeholder = 'Player name';
+  } else {
+    input.value = type === 'bfs' ? 'BFS Bot' : 'DFS Bot';
+    input.readOnly = true;
+  }
+}
+
+async function submitNewGame() {
+  const redName  = document.getElementById('red-name-input').value.trim()  || (playerTypes.red  !== 'human' ? (playerTypes.red  === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Red Player');
+  const blackName= document.getElementById('black-name-input').value.trim() || (playerTypes.black !== 'human' ? (playerTypes.black === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Black Player');
+
+  const body = {
+    red_player:   redName,
+    black_player: blackName,
+    red_bot:      playerTypes.red   !== 'human' ? playerTypes.red   : undefined,
+    black_bot:    playerTypes.black !== 'human' ? playerTypes.black : undefined,
+  };
+  // remove undefined keys
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+
+  try {
+    const res = await fetch(`${API()}/api/v1/games`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    closeNewGame();
+    showBoard(data.game_id);
+  } catch(e) {
+    alert('Failed to create game: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
