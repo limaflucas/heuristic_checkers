@@ -46,14 +46,14 @@ func uct(child *mctsNode, parentVisits float64) float64 {
 	if child.visits == 0 {
 		return math.MaxFloat64
 	}
-	// Exploitation: wins from parent's color perspective.
+	// Exploitation: wins from the PARENT's color perspective.
 	var exploit float64
 	if child.parent != nil && child.parent.color == engine.Black {
-		// Parent is Black → parent benefits from Red wins in this subtree.
-		exploit = child.redWins / child.visits
-	} else {
-		// Parent is Red → parent benefits from Black wins (low redWins).
+		// Parent is Black → maximise Black wins = (visits - redWins).
 		exploit = (child.visits - child.redWins) / child.visits
+	} else {
+		// Parent is Red → maximise Red wins.
+		exploit = child.redWins / child.visits
 	}
 	explore := mctsExploreC * math.Sqrt(math.Log(parentVisits)/child.visits)
 	return exploit + explore

@@ -228,7 +228,7 @@ func PVLeaf(pos engine.Position, color engine.Color, depth int, w *PSTWeights) e
 	bestChild := pos
 	for _, m := range ordered {
 		child := engine.ApplyMove(pos, color, m)
-		score := -int(PSTEvalColor(child, color.Opponent(), w))
+		score := int(PSTEvalColor(child, color, w))
 		if score > bestScore {
 			bestScore = score
 			bestChild = child
