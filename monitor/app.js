@@ -25,6 +25,7 @@ function showBoard(gameId) {
   currentGameId = gameId;
   show('board-view');
   connectSSE(gameId);
+  initChart();
 }
 
 function show(id) {
@@ -536,6 +537,35 @@ async function updateMoveLog(board) {
       div.innerHTML = txt;
       logEl.appendChild(div);
     });
+
+    // --- Live Telemetry Chart ---
+    if (telemetryChart) {
+      const labels = [];
+      const redData = [];
+      const blackData = [];
+      
+      // Sort moves chronologically for the chart (oldest first)
+      const chronologicalMoves = [...moves].sort((a,b) => a.move_number - b.move_number);
+      
+      chronologicalMoves.forEach(m => {
+        labels.push(m.move_number);
+        // Stats are embedded in the move object thanks to Engine updates
+        const val = m.stats ? m.stats.NodesExpanded : 0; 
+        
+        if (m.player.toLowerCase() === 'red') {
+          redData.push(val);
+          blackData.push(null); 
+        } else {
+          blackData.push(val);
+          redData.push(null);
+        }
+      });
+
+      telemetryChart.data.labels = labels;
+      telemetryChart.data.datasets[0].data = redData;
+      telemetryChart.data.datasets[1].data = blackData;
+      telemetryChart.update();
+    }
   } catch (e) {
     console.warn("Failed to update move log:", e);
   }
@@ -672,4 +702,37 @@ async function submitNewGame() {
       alert('Failed to create game: ' + e.message);
     }
   }
+}
+
+// ── Telemetry Chart (Chart.js) ────────────────────────
+let telemetryChart = null;
+
+function initChart() {
+  const ctx = document.getElementById('telemetryChart');
+  if (!ctx) return;
+  if (telemetryChart) telemetryChart.destroy();
+
+  Chart.defaults.color = '#9ca3af'; // Dark mode text
+  telemetryChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Red (Nodes Expanded)', borderColor: '#ef4444', backgroundColor: '#ef4444', data: [], tension: 0.3, pointRadius: 2, spanGaps: true },
+        { label: 'Black (Nodes Expanded)', borderColor: '#6b7280', backgroundColor: '#6b7280', data: [], tension: 0.3, pointRadius: 2, spanGaps: true }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 0 }, // Disable animation for snappy live updates
+      scales: {
+        x: { grid: { color: '#374151' }, title: { display: true, text: 'Move Number', color: '#6b7280' } },
+        y: { grid: { color: '#374151' }, title: { display: true, text: 'Search Space Size', color: '#6b7280' }, beginAtZero: true }
+      },
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
 }

@@ -50,7 +50,8 @@ type GameMove struct {
 	IsKingMove  bool      `json:"is_king_move"`
 	Promoted    bool      `json:"promoted"`
 	Timestamp   time.Time `json:"timestamp"`
-	DurationMs  int64     `json:"duration_ms"`
+	DurationMs  int64       `json:"duration_ms"`
+	Stats       interface{} `json:"stats,omitempty"`
 }
 
 // Game holds the complete state of one game session.
@@ -145,7 +146,7 @@ func (g *Game) playerName(c Color) string {
 }
 
 // MakeMove validates and applies a move. Returns an error if invalid.
-func (g *Game) MakeMove(c Color, m Move) error {
+func (g *Game) MakeMove(c Color, m Move, stats interface{}) error {
 	g.mu.Lock()
 
 	if g.Status != StatusInProgress {
@@ -185,6 +186,7 @@ func (g *Game) MakeMove(c Color, m Move) error {
 		Promoted:    m.Promoted,
 		Timestamp:   now,
 		DurationMs:  durationMs,
+		Stats:       stats,
 	})
 
 	g.Events = append(g.Events, Event{

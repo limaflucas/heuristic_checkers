@@ -114,7 +114,7 @@ func (h *Handlers) MakeMove(w http.ResponseWriter, r *http.Request) {
 		Captures: caps,
 	}
 
-	if err := g.MakeMove(c, m); err != nil {
+	if err := g.MakeMove(c, m, nil); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}

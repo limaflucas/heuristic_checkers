@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -96,9 +97,14 @@
       </div>
 
       <!-- Right sidebar: move log -->
-      <div id="board-sidebar-right">
+      <div id="board-sidebar-right" style="display:flex; flex-direction:column;">
         <div class="side-section-title" style="padding-top:4px">Move History</div>
-        <div id="move-log"></div>
+        <div id="move-log" style="flex:1; overflow-y:auto;"></div>
+        
+        <div class="side-section-title" style="padding-top:20px">Live Telemetry</div>
+        <div style="height: 250px; padding: 10px; background: var(--bg-card); border-top: 1px solid var(--glass-border);">
+          <canvas id="telemetryChart"></canvas>
+        </div>
       </div>
 
     </div>

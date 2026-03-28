@@ -71,5 +71,5 @@ func playTurn(g *engine.Game, color engine.Color, algo Algorithm, delay time.Dur
 		return
 	}
 	SetMoveStats(g.ID, color, &stats) // g.ID is a string field
-	_ = g.MakeMove(color, move)
+	_ = g.MakeMove(color, move, &stats)
 }

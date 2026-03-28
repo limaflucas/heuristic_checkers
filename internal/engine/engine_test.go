@@ -329,7 +329,7 @@ func TestMakeMoveWrongTurn(t *testing.T) {
 		t.Fatal("no black moves available")
 	}
 	m := moves[0]
-	err := g.MakeMove(Black, m)
+	err := g.MakeMove(Black, m, nil)
 	if err == nil {
 		t.Error("expected error for wrong turn")
 	}
@@ -338,7 +338,7 @@ func TestMakeMoveWrongTurn(t *testing.T) {
 func TestMakeMoveIllegal(t *testing.T) {
 	g := NewGame("Alice", "Bob")
 	// Try to move from an empty square
-	err := g.MakeMove(Red, Move{From: ACFToInternal(16), To: ACFToInternal(20)})
+	err := g.MakeMove(Red, Move{From: ACFToInternal(16), To: ACFToInternal(20)}, nil)
 	if err == nil {
 		t.Error("expected error for illegal move")
 	}
@@ -352,7 +352,7 @@ func TestMakeValidMove(t *testing.T) {
 		t.Fatal("no red moves")
 	}
 	m := moves[0]
-	err := g.MakeMove(Red, m)
+	err := g.MakeMove(Red, m, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestKingCreatedEvent(t *testing.T) {
 	g.Position = placePiece(g.Position, ACFToInternal(28), Red, false)
 	g.Turn = Red
 
-	err := g.MakeMove(Red, Move{From: ACFToInternal(28), To: ACFToInternal(32)})
+	err := g.MakeMove(Red, Move{From: ACFToInternal(28), To: ACFToInternal(32)}, nil)
 	if err != nil {
 		t.Fatalf("move failed: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestCaptureEvent(t *testing.T) {
 	g.Position = pos
 	g.Turn = Red
 
-	err := g.MakeMove(Red, Move{From: from, To: land, Captures: []int{mid}})
+	err := g.MakeMove(Red, Move{From: from, To: land, Captures: []int{mid}}, nil)
 	if err != nil {
 		t.Fatalf("move failed: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestGameOverEvent(t *testing.T) {
 	g.Position = pos
 	g.Turn = Red
 
-	err := g.MakeMove(Red, Move{From: from, To: land, Captures: []int{mid}})
+	err := g.MakeMove(Red, Move{From: from, To: land, Captures: []int{mid}}, nil)
 	if err != nil {
 		t.Fatalf("move error: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestDrawHalfMoveClock(t *testing.T) {
 		t.Fatal("red king has no moves")
 	}
 	// Pick a non-capture king move (no captures in the position)
-	err := g.MakeMove(Red, moves[0])
+	err := g.MakeMove(Red, moves[0], nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
