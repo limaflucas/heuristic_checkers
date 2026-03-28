@@ -26,11 +26,11 @@ import (
 )
 
 func main() {
-	games  := flag.Int("games", 1000, "number of self-play games")
-	alpha  := flag.Float64("alpha", 0.001, "learning rate")
+	games := flag.Int("games", 1000, "number of self-play games")
+	alpha := flag.Float64("alpha", 0.001, "learning rate")
 	lambda := flag.Float64("lambda", 0.7, "TD(λ) trace decay")
-	depth  := flag.Int("depth", 2, "PV search depth for leaf extraction")
-	out    := flag.String("out", "weights/pst_weights.json", "output weights file")
+	depth := flag.Int("depth", 2, "PV search depth for leaf extraction")
+	out := flag.String("out", "weights/pst_weights.json", "output weights file")
 	csvOut := flag.String("csv", "training_log.csv", "CSV log path (game, wins, draws, losses)")
 	flag.Parse()
 
@@ -217,11 +217,11 @@ func tdLeafUpdate(
 
 	var e [128]float64  // eligibility trace
 	color := engine.Red // positions stored from game start; Red moves first
-	prevSigV := gameai.Sigmoid(gameai.PSTEval(pv(positions[0], color, pvDepth, w), w))
+	prevSigV := gameai.Sigmoid(gameai.PSTEval(gameai.PVLeaf(positions[0], color, pvDepth, w), w))
 
 	for t := 1; t < len(positions); t++ {
 		// True TD-Leaf: find the PV leaf from the current root
-		leaf := pv(positions[t], color, pvDepth, w)
+		leaf := gameai.PVLeaf(positions[t], color, pvDepth, w)
 		sigV := gameai.Sigmoid(gameai.PSTEval(leaf, w))
 
 		// Gradient from the PV leaf (not the root)
@@ -241,7 +241,7 @@ func tdLeafUpdate(
 	}
 
 	// Terminal correction: δ_T = outcome − sigmoid(V(leaf_T))
-	lastLeaf := pv(positions[len(positions)-1], color, pvDepth, w)
+	lastLeaf := gameai.PVLeaf(positions[len(positions)-1], color, pvDepth, w)
 	sigVT := gameai.Sigmoid(gameai.PSTEval(lastLeaf, w))
 	grad := gameai.FeatureVector(lastLeaf)
 
@@ -251,27 +251,4 @@ func tdLeafUpdate(
 	}
 	deltaT := outcome - sigVT
 	gameai.ApplyGradient(w, e, alpha*deltaT)
-}
-
-// pv returns the PV leaf position from a shallow greedy search (depth d).
-// This makes the gradient extraction a true TD-Leaf gradient.
-func pv(pos engine.Position, color engine.Color, depth int, w *gameai.PSTWeights) engine.Position {
-	if depth == 0 {
-		return pos
-	}
-	moves := engine.LegalMoves(pos, color)
-	if len(moves) == 0 {
-		return pos
-	}
-	best := moves[0]
-	bestScore := -1e18
-	for _, m := range moves {
-		child := engine.ApplyMove(pos, color, m)
-		s := gameai.PSTEvalColor(child, color, w)
-		if s > bestScore {
-			bestScore = s
-			best = m
-		}
-	}
-	return pv(engine.ApplyMove(pos, color, best), color.Opponent(), depth-1, w)
 }

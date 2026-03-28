@@ -53,18 +53,18 @@ async function fetchGames() {
     ]);
     if (!resG.ok || !resM.ok) throw new Error("API error");
     const [dataG, dataM] = await Promise.all([resG.json(), resM.json()]);
-    
+
     // Tag them to differentiate in the rendering logic
     const games = (dataG.games || []).map(g => ({ ...g, _type: 'game' }));
     const sessions = (dataM.sessions || []).map(s => ({ ...s, _type: 'session' }));
-    
+
     // Filter out games that are managed by active sessions
     const managedGameIds = new Set(sessions.map(s => s.current_game_id).filter(id => id));
     const filteredGames = games.filter(g => !managedGameIds.has(g.id));
-    
+
     // Combine and sort (games have start_time, sessions don't have explicit time yet but we can put them at top)
-    const combined = [...sessions.reverse(), ...filteredGames.sort((a,b) => new Date(b.start_time) - new Date(a.start_time))];
-    
+    const combined = [...sessions.reverse(), ...filteredGames.sort((a, b) => new Date(b.start_time) - new Date(a.start_time))];
+
     // Update active manager modal if open
     if (openManagerSessionId) {
       const activeSession = sessions.find(s => s.id === openManagerSessionId);
@@ -72,10 +72,10 @@ async function fetchGames() {
         updateManagerDetailsUI(activeSession);
       }
     }
-    
+
     renderLobby(combined);
     setOnline(true);
-  } catch(e) {
+  } catch (e) {
     setOnline(false);
   }
 }
@@ -131,7 +131,7 @@ function renderLobby(items) {
     let card = grid.querySelector(`[data-id="${item.id}"]`);
     const isSession = item._type === 'session';
     const html = isSession ? sessionCardHTML(item) : cardHTML(item);
-    
+
     if (!card) {
       card = document.createElement('div');
       card.className = 'game-card';
@@ -172,7 +172,7 @@ function cardHTML(g) {
     <div class="card-stats">
       <div class="stat-box"><div class="stat-label">Time</div><div class="stat-value card-timer" id="ct-${g.id}">…</div></div>
       <div class="stat-box"><div class="stat-label">Moves</div><div class="stat-value">${g.move_count}</div></div>
-      <div class="stat-box"><div class="stat-label">Turn</div><div class="stat-value" style="font-size:.8rem;color:${g.turn==='red'?'#f87171':'#9ca3af'}">${g.status==='in_progress'?cap(g.turn):'—'}</div></div>
+      <div class="stat-box"><div class="stat-label">Turn</div><div class="stat-value" style="font-size:.8rem;color:${g.turn === 'red' ? '#f87171' : '#9ca3af'}">${g.status === 'in_progress' ? cap(g.turn) : '—'}</div></div>
     </div>
     <div class="card-footer">
       <div class="piece-counts">
@@ -193,7 +193,7 @@ function cardHTML(g) {
 function openManagerDetails(s) {
   openManagerSessionId = s.id;
   updateManagerDetailsUI(s);
-  
+
   // Start duration tick (total session) + per-game elapsed tick
   clearInterval(managerDurationInterval);
   managerDurationInterval = setInterval(() => {
@@ -205,7 +205,7 @@ function openManagerDetails(s) {
       const start = new Date(el.dataset.startTime);
       const isFinished = el.dataset.isFinished === 'true';
       const end = isFinished ? new Date(el.dataset.endTime) : new Date();
-      el.textContent = formatTime((end - start)/1000);
+      el.textContent = formatTime((end - start) / 1000);
     }
 
     // Current game elapsed (ticked locally, reset on game change via updateManagerDetailsUI)
@@ -223,7 +223,7 @@ function openManagerDetails(s) {
 function updateManagerDetailsUI(s) {
   // Inject the dynamically generated Absolute HTTP format URI mapped straight to the results
   document.getElementById('mgr-detail-dir').innerHTML = `<a href="file://${s.base_dir}" target="_blank" style="color:#60a5fa; text-decoration:none">${s.base_dir}</a>`;
-  
+
   // Create beautiful configuration header
   let configText = `${s.config.red_bot ? s.config.red_bot.toUpperCase() + ' Bot' : 'Human'} (Red) vs ${s.config.black_bot ? s.config.black_bot.toUpperCase() + ' Bot' : 'Human'} (Black)`;
   if (s.config.epochs > 1) {
@@ -232,7 +232,7 @@ function updateManagerDetailsUI(s) {
     configText += ` | Best of ${s.config.matches_per_epoch}`;
   }
   document.getElementById('mgr-detail-config').textContent = configText;
-  
+
   const durEl = document.getElementById('mgr-detail-dur');
   durEl.dataset.startTime = s.start_time || '';
   durEl.dataset.endTime = s.end_time || '';
@@ -242,26 +242,26 @@ function updateManagerDetailsUI(s) {
   if (s.start_time) {
     const start = new Date(s.start_time);
     const end = s.is_finished ? new Date(s.end_time) : new Date();
-    dur = formatTime((end - start)/1000);
+    dur = formatTime((end - start) / 1000);
   }
   durEl.textContent = dur;
-  
+
   document.getElementById('mgr-detail-score').innerHTML = `
     <span style="color:#ef4444">${s.red_wins} Red</span> | 
     <span style="color:#9ca3af">${s.black_wins} Black</span> | 
     <span style="color:#fcd34d">${s.draws} Draws</span>
   `;
-  
+
   // ── Current game in-progress timer ────────────────────
   // Reset the per-game elapsed counter whenever current_game_id changes
   const gameEl = document.getElementById('mgr-detail-game-elapsed');
   if (gameEl) {
     const prevGameId = gameEl.dataset.gameId || '';
-    const newGameId  = s.current_game_id || '';
+    const newGameId = s.current_game_id || '';
 
     if (newGameId !== prevGameId) {
       // Game changed: seed the counter fresh from the server-supplied elapsed
-      gameEl.dataset.gameId      = newGameId;
+      gameEl.dataset.gameId = newGameId;
       gameEl.dataset.gameElapsed = s.current_game_elapsed_sec || 0;
       gameEl.dataset.gameSysTime = Date.now();
     }
@@ -295,11 +295,11 @@ function closeManagerDetails() {
 function sessionCardHTML(s) {
   let headerTxt = '';
   if (s.config.epochs > 1) {
-     headerTxt = `Epoch ${s.current_epoch}/${s.config.epochs} (Match ${s.current_match}/${s.config.matches_per_epoch})`;
+    headerTxt = `Epoch ${s.current_epoch}/${s.config.epochs} (Match ${s.current_match}/${s.config.matches_per_epoch})`;
   } else {
-     headerTxt = `Best of ${s.config.matches_per_epoch} (Match ${s.current_match}/${s.config.matches_per_epoch})`;
+    headerTxt = `Best of ${s.config.matches_per_epoch} (Match ${s.current_match}/${s.config.matches_per_epoch})`;
   }
-  
+
   if (s.is_finished) {
     if (s.red_wins > s.black_wins) headerTxt = `RED WINS SERIES`;
     else if (s.black_wins > s.red_wins) headerTxt = `BLACK WINS SERIES`;
@@ -435,7 +435,7 @@ function renderBoardGrid(board) {
       Object.entries(pieceMap).forEach(([k, p]) => {
         if (!prev[k]) newSq = k;
       });
-      if (newSq) { const [r,c] = newSq.split('-'); lt = parseInt(r)*8+parseInt(c); }
+      if (newSq) { const [r, c] = newSq.split('-'); lt = parseInt(r) * 8 + parseInt(c); }
     }
 
     const cells = boardEl.children;
@@ -474,12 +474,12 @@ function renderBoardGrid(board) {
 }
 
 function renderPiecePanels(board) {
-  const capRed   = Math.max(0, 12 - board.red_men   - board.red_kings);
+  const capRed = Math.max(0, 12 - board.red_men - board.red_kings);
   const capBlack = Math.max(0, 12 - board.black_men - board.black_kings);
 
-  renderPieceDots('red-pieces',   board.red_men,   board.red_kings,   'red');
+  renderPieceDots('red-pieces', board.red_men, board.red_kings, 'red');
   renderPieceDots('black-pieces', board.black_men, board.black_kings, 'black');
-  renderCaptured('red-captured',   capRed,   'red');
+  renderCaptured('red-captured', capRed, 'red');
   renderCaptured('black-captured', capBlack, 'black');
 }
 
@@ -514,18 +514,18 @@ async function updateMoveLog(board) {
     const res = await fetch(`${API()}/api/v1/games/${board.game_id}/moves`);
     if (!res.ok) return;
     const data = await res.json();
-    
+
     // Quick optimisation: only re-render if count changed
     if (data.total === lastMoveCount && lastMoveCount > 0) return;
     lastMoveCount = data.total;
 
     const logEl = document.getElementById('move-log');
     logEl.innerHTML = '';
-    
+
     // Sort moves perfectly (newest top if we want, or oldest top. Based on overflow-y:auto we usually want newest at bottom or top)
     const moves = data.moves || [];
-    moves.sort((a,b) => b.move_number - a.move_number); // newest first (top)
-    
+    moves.sort((a, b) => b.move_number - a.move_number); // newest first (top)
+
     moves.forEach(m => {
       const div = document.createElement('div');
       div.className = `move-entry ${m.player}-move`;
@@ -543,18 +543,19 @@ async function updateMoveLog(board) {
       const labels = [];
       const redData = [];
       const blackData = [];
-      
+
       // Sort moves chronologically for the chart (oldest first)
-      const chronologicalMoves = [...moves].sort((a,b) => a.move_number - b.move_number);
-      
-      chronologicalMoves.forEach(m => {
+      const chronologicalMoves = [...moves].sort((a, b) => a.move_number - b.move_number);
+
+      chronologicalMoves.forEach((m, idx) => {
         labels.push(m.move_number);
-        // Stats are embedded in the move object thanks to Engine updates
-        const val = m.stats ? m.stats.NodesExpanded : 0; 
-        
-        if (m.player.toLowerCase() === 'red') {
+        // Swap out 'NodesExpanded' for 'SimulationsPerSec' if showcasing MCTS!
+        const val = m.stats ? m.stats.NodesExpanded : 0;
+
+        // Red moves first, so even indices (0, 2, 4...) are Red, odd are Black
+        if (idx % 2 === 0) {
           redData.push(val);
-          blackData.push(null); 
+          blackData.push(null);
         } else {
           blackData.push(val);
           redData.push(null);
@@ -576,20 +577,20 @@ async function updateMoveLog(board) {
 function formatTime(s) {
   if (s < 0) s = 0;
   const m = Math.floor(s / 60), sec = Math.floor(s % 60);
-  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function statusBadgeClass(s) {
-  return {in_progress:'badge-progress',red_wins:'badge-red-wins',black_wins:'badge-black-wins',draw:'badge-draw'}[s]||'badge-progress';
+  return { in_progress: 'badge-progress', red_wins: 'badge-red-wins', black_wins: 'badge-black-wins', draw: 'badge-draw' }[s] || 'badge-progress';
 }
 function statusText(s) {
-  return {in_progress:'IN PROGRESS',red_wins:'RED WINS',black_wins:'BLACK WINS',draw:'DRAW'}[s]||s.toUpperCase();
+  return { in_progress: 'IN PROGRESS', red_wins: 'RED WINS', black_wins: 'BLACK WINS', draw: 'DRAW' }[s] || s.toUpperCase();
 }
 function humanStatus(s) {
-  return {in_progress:'Game in progress',red_wins:'Red player wins!',black_wins:'Black player wins!',draw:'Game drawn (40-move rule)'}[s]||s;
+  return { in_progress: 'Game in progress', red_wins: 'Red player wins!', black_wins: 'Black player wins!', draw: 'Game drawn (40-move rule)' }[s] || s;
 }
-function cap(s) { return s ? s[0].toUpperCase()+s.slice(1) : s; }
-function esc(s) { const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function setOnline(ok) {
   const d = document.getElementById('status-dot');
   d.style.background = ok ? '#22c55e' : '#ef4444';
@@ -621,7 +622,7 @@ function setType(side, type, btn) {
   const input = document.getElementById(`${side}-name-input`);
   if (type === 'human') {
     input.readOnly = false;
-    if (['BFS Bot','DFS Bot','Negamax Bot'].includes(input.value)) input.value = '';
+    if (['BFS Bot', 'DFS Bot', 'Negamax Bot'].includes(input.value)) input.value = '';
     input.placeholder = 'Player name';
   } else {
     const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot', mcts: 'MCTS Bot' };
@@ -634,7 +635,7 @@ function toggleMultiInfo() {
   const val = document.getElementById('match-type-select').value;
   const tDiv = document.getElementById('manager-inputs');
   const eCont = document.getElementById('epochs-container');
-  
+
   if (val === 'single') {
     tDiv.style.display = 'none';
   } else if (val === 'best_of_n') {
@@ -647,22 +648,22 @@ function toggleMultiInfo() {
 }
 
 async function submitNewGame() {
-  const redName  = document.getElementById('red-name-input').value.trim()  || (playerTypes.red  !== 'human' ? (playerTypes.red  === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Red Player');
-  const blackName= document.getElementById('black-name-input').value.trim() || (playerTypes.black !== 'human' ? (playerTypes.black === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Black Player');
+  const redName = document.getElementById('red-name-input').value.trim() || (playerTypes.red !== 'human' ? (playerTypes.red === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Red Player');
+  const blackName = document.getElementById('black-name-input').value.trim() || (playerTypes.black !== 'human' ? (playerTypes.black === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Black Player');
 
   const matchType = document.getElementById('match-type-select').value;
   const isManager = matchType !== 'single';
   const isHumanSpeed = document.getElementById('human-speed-checkbox').checked;
-  
+
   if (isManager) {
     const body = {
-      red_player:   redName,
+      red_player: redName,
       black_player: blackName,
-      red_bot:      playerTypes.red   !== 'human' ? playerTypes.red   : undefined,
-      black_bot:    playerTypes.black !== 'human' ? playerTypes.black : undefined,
+      red_bot: playerTypes.red !== 'human' ? playerTypes.red : undefined,
+      black_bot: playerTypes.black !== 'human' ? playerTypes.black : undefined,
       matches_per_epoch: parseInt(document.getElementById('matches-input').value) || 5,
       epochs: matchType === 'epochs' ? (parseInt(document.getElementById('epochs-input').value) || 3) : 1,
-      human_speed:  isHumanSpeed
+      human_speed: isHumanSpeed
     };
     Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
     try {
@@ -675,19 +676,19 @@ async function submitNewGame() {
       closeNewGame();
       // Keep user in lobby to watch the manager overall progress
       fetchGames();
-    } catch(e) {
+    } catch (e) {
       alert('Failed to start manager: ' + e.message);
     }
   } else {
     const body = {
-      red_player:   redName,
+      red_player: redName,
       black_player: blackName,
-      red_bot:      playerTypes.red   !== 'human' ? playerTypes.red   : undefined,
-      black_bot:    playerTypes.black !== 'human' ? playerTypes.black : undefined,
-      human_speed:  isHumanSpeed
+      red_bot: playerTypes.red !== 'human' ? playerTypes.red : undefined,
+      black_bot: playerTypes.black !== 'human' ? playerTypes.black : undefined,
+      human_speed: isHumanSpeed
     };
     Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
-  
+
     try {
       const res = await fetch(`${API()}/api/v1/games`, {
         method: 'POST',
@@ -698,7 +699,7 @@ async function submitNewGame() {
       const data = await res.json();
       closeNewGame();
       showBoard(data.game_id);
-    } catch(e) {
+    } catch (e) {
       alert('Failed to create game: ' + e.message);
     }
   }
