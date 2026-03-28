@@ -35,7 +35,10 @@ func ByName(name string) Algorithm {
 // Call as a goroutine: go bot.Run(g, color, algo, delay).
 func Run(g *engine.Game, color engine.Color, algo Algorithm, thinkDelay time.Duration) {
 	ch := g.Subscribe()
-	defer g.Unsubscribe(ch)
+	defer func() {
+		g.Unsubscribe(ch)
+		ClearMoveStats(g.ID) // g.ID is a plain string field
+	}()
 
 	// Play immediately if it is already our turn.
 	snap := g.Snapshot()
@@ -62,9 +65,11 @@ func playTurn(g *engine.Game, color engine.Color, algo Algorithm, delay time.Dur
 		return
 	}
 
-	move := algo(snap.Position, color, nil) // nil = discard stats in production
+	var stats gameai.SearchStats
+	move := algo(snap.Position, color, &stats)
 	if move.From == 0 && move.To == 0 {
 		return
 	}
+	SetMoveStats(g.ID, color, &stats) // g.ID is a string field
 	_ = g.MakeMove(color, move)
 }

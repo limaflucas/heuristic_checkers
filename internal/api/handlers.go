@@ -434,3 +434,25 @@ func (h *Handlers) GetManagerSession(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, status)
 }
+
+// ---- GET /api/v1/games/{id}/stats ----
+
+// GetGameStats returns the latest SearchStats produced by each bot in this game.
+// Returns 200 with null red/black fields if no bot has moved yet.
+func (h *Handlers) GetGameStats(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/games/"), "/")
+	if len(parts) < 1 || parts[0] == "" {
+		writeError(w, http.StatusBadRequest, "missing game id")
+		return
+	}
+	id := parts[0]
+	if _, ok := h.store.Get(id); !ok {
+		writeError(w, http.StatusNotFound, "game not found")
+		return
+	}
+	ms := bot.GetMoveStats(id) // may be nil if bots haven't moved yet
+	if ms == nil {
+		ms = &bot.MoveStats{}
+	}
+	writeJSON(w, http.StatusOK, ms)
+}

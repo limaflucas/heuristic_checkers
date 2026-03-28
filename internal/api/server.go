@@ -43,6 +43,8 @@ func NewServer(addr string, store *engine.GameStore, mgr *manager.Manager) *http
 			h.GetMoves(w, r)
 		case r.Method == http.MethodGet && hasSuffix(r.URL.Path, "/watch"):
 			h.WatchGame(w, r)
+		case r.Method == http.MethodGet && hasSuffix(r.URL.Path, "/stats"):
+			h.GetGameStats(w, r)
 		default:
 			writeError(w, http.StatusNotFound, "route not found")
 		}

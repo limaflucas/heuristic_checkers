@@ -12,10 +12,13 @@
 package main
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/limaflucas/heuristic_checkers/algorithms/gameai"
@@ -23,17 +26,21 @@ import (
 )
 
 func main() {
-	games := flag.Int("games", 1000, "number of self-play games")
-	alpha := flag.Float64("alpha", 0.001, "learning rate")
+	games  := flag.Int("games", 1000, "number of self-play games")
+	alpha  := flag.Float64("alpha", 0.001, "learning rate")
 	lambda := flag.Float64("lambda", 0.7, "TD(λ) trace decay")
-	depth := flag.Int("depth", 2, "PV search depth for leaf extraction")
-	out := flag.String("out", "weights/pst_weights.json", "output weights file")
+	depth  := flag.Int("depth", 2, "PV search depth for leaf extraction")
+	out    := flag.String("out", "weights/pst_weights.json", "output weights file")
+	csvOut := flag.String("csv", "training_log.csv", "CSV log path (game, wins, draws, losses)")
 	flag.Parse()
 
 	log.Printf("TD-Leaf trainer: games=%d α=%.4f λ=%.4f PV-depth=%d", *games, *alpha, *lambda, *depth)
 
 	w := gameai.LoadPSTWeights(*out)
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Initialise CSV log (append mode — creates file with header if new).
+	csvFile, csvWriter := initCSVLog(*csvOut)
 
 	totalWins, totalDraws, totalLosses := 0, 0, 0
 
@@ -53,6 +60,9 @@ func main() {
 		// TD-Leaf(λ) online eligibility-trace update.
 		tdLeafUpdate(w, positions, outcome, *alpha, *lambda, *depth)
 
+		if g%50 == 0 {
+			appendCSVRow(csvWriter, g, totalWins, totalDraws, totalLosses)
+		}
 		if g%100 == 0 {
 			log.Printf("Game %d/%d — Red W:%d D:%d L:%d", g, *games, totalWins, totalDraws, totalLosses)
 			if err := gameai.SavePSTWeights(*out, w); err != nil {
@@ -64,11 +74,44 @@ func main() {
 	if err := gameai.SavePSTWeights(*out, w); err != nil {
 		log.Fatalf("failed to save weights: %v", err)
 	}
+	csvFile.Close()
 	fmt.Printf("Training complete. Weights saved to %s\n", *out)
+	fmt.Printf("Training log saved to %s\n", *csvOut)
 	fmt.Printf("Final record: W=%d D=%d L=%d\n", totalWins, totalDraws, totalLosses)
 }
 
-// selfPlayGame plays one Negamax self-play game and returns all root positions
+// ── CSV logging helpers ───────────────────────────────────────────────────────
+
+// initCSVLog opens (or creates) the CSV file, writes a header if the file is
+// new, and returns the file handle and a *csv.Writer for use by appendCSVRow.
+func initCSVLog(path string) (*os.File, *csv.Writer) {
+	newFile := false
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		newFile = true
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("cannot open CSV log %s: %v", path, err)
+	}
+	w := csv.NewWriter(f)
+	if newFile {
+		_ = w.Write([]string{"game", "wins", "draws", "losses"})
+		w.Flush()
+	}
+	return f, w
+}
+
+// appendCSVRow appends one row to the training CSV (flushed immediately).
+func appendCSVRow(w *csv.Writer, game, wins, draws, losses int) {
+	_ = w.Write([]string{
+		strconv.Itoa(game),
+		strconv.Itoa(wins),
+		strconv.Itoa(draws),
+		strconv.Itoa(losses),
+	})
+	w.Flush()
+}
+
 // (from Red's POV) plus the outcome (1=Red wins, 0.5=draw, 0=Black wins).
 func selfPlayGame(w *gameai.PSTWeights, rng *rand.Rand, pvDepth int) ([]engine.Position, float64) {
 	pos := engine.StartPosition()
