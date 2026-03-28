@@ -594,7 +594,7 @@ function setType(side, type, btn) {
     if (['BFS Bot','DFS Bot','Negamax Bot'].includes(input.value)) input.value = '';
     input.placeholder = 'Player name';
   } else {
-    const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot' };
+    const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot', mcts: 'MCTS Bot' };
     input.value = names[type] || type;
     input.readOnly = true;
   }

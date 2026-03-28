@@ -116,7 +116,7 @@ func handleBoard(api, gameID string, color engine.Color, raw string) {
 	time.Sleep(400 * time.Millisecond)
 
 	// BFS search
-	move := gameai.BFSChooseMove(pos, color)
+	move := gameai.BFSChooseMove(pos, color, nil)
 	if move.From == 0 && move.To == 0 {
 		return
 	}

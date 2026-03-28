@@ -28,8 +28,12 @@ type bfsItem struct {
 }
 
 // BFSChooseMove returns the best move for color in pos using breadth-first search.
-func BFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
+func BFSChooseMove(pos engine.Position, color engine.Color, stats *SearchStats) engine.Move {
+	t := newTimer()
 	initial := engine.LegalMoves(pos, color)
+	if stats != nil {
+		stats.NodesExpanded++
+	}
 	if len(initial) == 0 {
 		return engine.Move{}
 	}
@@ -54,10 +58,16 @@ func BFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
 		queue = queue[1:] // dequeue (FIFO)
 
 		moves := engine.LegalMoves(item.pos, item.player)
+		if stats != nil {
+			stats.NodesExpanded++
+		}
 
 		if item.depth >= bfsMaxDepth || len(moves) == 0 {
 			// Leaf: evaluate from our (color's) perspective
 			sc := Evaluate(item.pos, color)
+			if stats != nil {
+				stats.NodesEvaluated++
+			}
 			if sc < scores[item.moveIdx] {
 				scores[item.moveIdx] = sc // take the worst opponent response
 			}
@@ -77,6 +87,10 @@ func BFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
 		if scores[i] > scores[best] {
 			best = i
 		}
+	}
+	if stats != nil {
+		stats.MaxDepthReached = bfsMaxDepth
+		stats.ExecutionTimeMs = t.elapsedMs()
 	}
 	return initial[best]
 }

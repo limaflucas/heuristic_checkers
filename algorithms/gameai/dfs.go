@@ -29,8 +29,12 @@ type dfsItem struct {
 }
 
 // DFSChooseMove returns the best move for color in pos using depth-first search.
-func DFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
+func DFSChooseMove(pos engine.Position, color engine.Color, stats *SearchStats) engine.Move {
+	t := newTimer()
 	initial := engine.LegalMoves(pos, color)
+	if stats != nil {
+		stats.NodesExpanded++
+	}
 	if len(initial) == 0 {
 		return engine.Move{}
 	}
@@ -58,10 +62,16 @@ func DFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
 		stack = stack[:n]
 
 		moves := engine.LegalMoves(item.pos, item.player)
+		if stats != nil {
+			stats.NodesExpanded++
+		}
 
 		if item.depth >= dfsMaxDepth || len(moves) == 0 {
 			// Leaf: evaluate from our (color's) perspective
 			sc := Evaluate(item.pos, color)
+			if stats != nil {
+				stats.NodesEvaluated++
+			}
 			if sc > scores[item.moveIdx] {
 				scores[item.moveIdx] = sc // keep best leaf score for this first move
 			}
@@ -80,6 +90,10 @@ func DFSChooseMove(pos engine.Position, color engine.Color) engine.Move {
 		if scores[i] > scores[best] {
 			best = i
 		}
+	}
+	if stats != nil {
+		stats.MaxDepthReached = dfsMaxDepth
+		stats.ExecutionTimeMs = t.elapsedMs()
 	}
 	return initial[best]
 }

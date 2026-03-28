@@ -10,10 +10,11 @@ import (
 	"github.com/limaflucas/heuristic_checkers/internal/engine"
 )
 
-// Algorithm is the signature shared by BFSChooseMove and DFSChooseMove.
-type Algorithm func(pos engine.Position, color engine.Color) engine.Move
+// Algorithm is the canonical bot function signature.
+// The *SearchStats parameter is nil-safe: bots populate it when non-nil.
+type Algorithm func(pos engine.Position, color engine.Color, stats *gameai.SearchStats) engine.Move
 
-// ByName returns the algorithm function for a given name ("bfs" | "dfs").
+// ByName returns the algorithm function for a given name.
 // Returns nil for unknown names.
 func ByName(name string) Algorithm {
 	switch name {
@@ -23,6 +24,8 @@ func ByName(name string) Algorithm {
 		return gameai.DFSChooseMove
 	case "negamax":
 		return gameai.NegamaxChooseMove
+	case "mcts":
+		return gameai.MCTSChooseMove
 	}
 	return nil
 }
@@ -59,7 +62,7 @@ func playTurn(g *engine.Game, color engine.Color, algo Algorithm, delay time.Dur
 		return
 	}
 
-	move := algo(snap.Position, color)
+	move := algo(snap.Position, color, nil) // nil = discard stats in production
 	if move.From == 0 && move.To == 0 {
 		return
 	}

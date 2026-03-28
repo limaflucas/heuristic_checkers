@@ -112,7 +112,7 @@ func handleBoard(api, gameID string, color engine.Color, raw string) {
 
 	time.Sleep(600 * time.Millisecond) // think time
 
-	move := gameai.DFSChooseMove(pos, color)
+	move := gameai.DFSChooseMove(pos, color, nil)
 	if move.From == 0 && move.To == 0 {
 		return
 	}
