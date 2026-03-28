@@ -591,10 +591,11 @@ function setType(side, type, btn) {
   const input = document.getElementById(`${side}-name-input`);
   if (type === 'human') {
     input.readOnly = false;
-    if (['BFS Bot','DFS Bot'].includes(input.value)) input.value = '';
+    if (['BFS Bot','DFS Bot','Negamax Bot'].includes(input.value)) input.value = '';
     input.placeholder = 'Player name';
   } else {
-    input.value = type === 'bfs' ? 'BFS Bot' : 'DFS Bot';
+    const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot' };
+    input.value = names[type] || type;
     input.readOnly = true;
   }
 }

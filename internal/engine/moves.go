@@ -169,6 +169,11 @@ func IsLegal(pos Position, c Color, m Move) bool {
 }
 
 func movesEqual(a, b Move) bool {
+	return MovesEqual(a, b)
+}
+
+// MovesEqual reports whether two moves are identical (same from/to/captures sequence).
+func MovesEqual(a, b Move) bool {
 	if a.From != b.From || a.To != b.To || len(a.Captures) != len(b.Captures) {
 		return false
 	}

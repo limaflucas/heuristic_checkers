@@ -21,6 +21,8 @@ func ByName(name string) Algorithm {
 		return gameai.BFSChooseMove
 	case "dfs":
 		return gameai.DFSChooseMove
+	case "negamax":
+		return gameai.NegamaxChooseMove
 	}
 	return nil
 }
