@@ -1,8 +1,9 @@
 // cmd/train/main.go — TD-Leaf(λ) offline trainer for the Checkers PST weights.
 //
 // Self-plays Negamax-vs-Negamax games and applies the TD-Leaf update rule:
-//   at each step, the gradient comes from the PV leaf (not the root position),
-//   and scores are mapped through a sigmoid before computing temporal differences.
+//
+//	at each step, the gradient comes from the PV leaf (not the root position),
+//	and scores are mapped through a sigmoid before computing temporal differences.
 //
 // Usage:
 //
@@ -22,11 +23,11 @@ import (
 )
 
 func main() {
-	games  := flag.Int("games", 1000, "number of self-play games")
-	alpha  := flag.Float64("alpha", 0.001, "learning rate")
+	games := flag.Int("games", 1000, "number of self-play games")
+	alpha := flag.Float64("alpha", 0.001, "learning rate")
 	lambda := flag.Float64("lambda", 0.7, "TD(λ) trace decay")
-	depth  := flag.Int("depth", 2, "PV search depth for leaf extraction")
-	out    := flag.String("out", "weights/pst_weights.json", "output weights file")
+	depth := flag.Int("depth", 2, "PV search depth for leaf extraction")
+	out := flag.String("out", "weights/pst_weights.json", "output weights file")
 	flag.Parse()
 
 	log.Printf("TD-Leaf trainer: games=%d α=%.4f λ=%.4f PV-depth=%d", *games, *alpha, *lambda, *depth)
@@ -88,8 +89,8 @@ func selfPlayGame(w *gameai.PSTWeights, rng *rand.Rand, pvDepth int) ([]engine.P
 		if rng.Float64() < 0.05 {
 			chosen = moves[rng.Intn(len(moves))]
 		} else {
-			// Simple greedy PST move selection for fast self-play
-			chosen = greedyMove(pos, color, moves, w)
+			// REPLACED: Use bounded Alpha-Beta search instead of 1-ply greedyMove
+			chosen = trainingSearchMove(pos, color, pvDepth, w)
 		}
 		pos = engine.ApplyMove(pos, color, chosen)
 		positions = append(positions, pos)
@@ -98,19 +99,64 @@ func selfPlayGame(w *gameai.PSTWeights, rng *rand.Rand, pvDepth int) ([]engine.P
 	return positions, 0.5 // game too long → draw
 }
 
-// greedyMove picks the move maximising PST eval for the current player.
-func greedyMove(pos engine.Position, color engine.Color, moves []engine.Move, w *gameai.PSTWeights) engine.Move {
-	best := moves[0]
-	bestScore := -1e18
+// trainingSearchMove uses a fast, fixed-depth Alpha-Beta search to generate
+// much higher quality training games than a simple 1-ply greedy move.
+func trainingSearchMove(pos engine.Position, color engine.Color, depth int, w *gameai.PSTWeights) engine.Move {
+	moves := engine.LegalMoves(pos, color)
+	if len(moves) == 0 {
+		return engine.Move{}
+	}
+	if len(moves) == 1 {
+		return moves[0] // Auto-play forced moves
+	}
+
+	bestMove := moves[0]
+	bestScore := -1 << 29
+	alpha := -1 << 29
+	beta := 1 << 29
+
 	for _, m := range moves {
 		child := engine.ApplyMove(pos, color, m)
-		s := gameai.PSTEvalColor(child, color, w)
-		if s > bestScore {
-			bestScore = s
-			best = m
+		score := -alphaBeta(child, color.Opponent(), depth-1, -beta, -alpha, w)
+
+		if score > bestScore {
+			bestScore = score
+			bestMove = m
+		}
+		if score > alpha {
+			alpha = score
 		}
 	}
-	return best
+	return bestMove
+}
+
+// alphaBeta is a lightweight minimax helper for generating training games.
+func alphaBeta(pos engine.Position, color engine.Color, depth, alpha, beta int, w *gameai.PSTWeights) int {
+	if depth == 0 {
+		return int(gameai.PSTEvalColor(pos, color, w))
+	}
+
+	moves := engine.LegalMoves(pos, color)
+	if len(moves) == 0 {
+		return -32000 // Mate score (loss for current player)
+	}
+
+	bestScore := -1 << 29
+	for _, m := range moves {
+		child := engine.ApplyMove(pos, color, m)
+		score := -alphaBeta(child, color.Opponent(), depth-1, -beta, -alpha, w)
+
+		if score > bestScore {
+			bestScore = score
+		}
+		if score > alpha {
+			alpha = score
+		}
+		if alpha >= beta {
+			break // Alpha-Beta Cutoff
+		}
+	}
+	return bestScore
 }
 
 // tdLeafUpdate applies the TD-Leaf(λ) weight update for one game.
@@ -126,8 +172,8 @@ func tdLeafUpdate(
 		return
 	}
 
-	var e [128]float64     // eligibility trace
-	color := engine.Red    // positions stored from game start; Red moves first
+	var e [128]float64  // eligibility trace
+	color := engine.Red // positions stored from game start; Red moves first
 	prevSigV := gameai.Sigmoid(gameai.PSTEval(pv(positions[0], color, pvDepth, w), w))
 
 	for t := 1; t < len(positions); t++ {

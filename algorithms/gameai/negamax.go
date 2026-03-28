@@ -213,26 +213,80 @@ func orderMoves(moves []engine.Move, ttMove engine.Move, hasTTMove bool) []engin
 	return append(ordered, rest...)
 }
 
-// PVLeaf runs a shallow Negamax search and returns the leaf position
-// at the end of the Principal Variation — used by the TD-Leaf trainer.
+// TrainingChooseMove runs a depth-bounded alpha-beta search with no wall-clock
+// time limit. It is intended for offline self-play training where you want
+// reproducible, purely depth-limited play rather than the 1.8 s live cap.
+func TrainingChooseMove(pos engine.Position, color engine.Color, depth int, w *PSTWeights) engine.Move {
+	moves := engine.LegalMoves(pos, color)
+	if len(moves) == 0 {
+		return engine.Move{}
+	}
+	if len(moves) == 1 {
+		return moves[0]
+	}
+	tt := make(map[uint64]ttEntry, 1<<14)
+	deadline := time.Now().Add(1 * time.Hour) // effectively unlimited
+	move, _, _ := negamaxSearch(pos, color, depth, 0, negInf, posInf, w, tt, deadline, nil)
+	return move
+}
+
+// // PVLeaf runs a shallow Negamax search and returns the leaf position
+// // at the end of the Principal Variation — used by the TD-Leaf trainer.
+// func PVLeaf(pos engine.Position, color engine.Color, depth int, w *PSTWeights) engine.Position {
+// 	if depth == 0 {
+// 		return pos
+// 	}
+// 	moves := engine.LegalMoves(pos, color)
+// 	if len(moves) == 0 {
+// 		return pos
+// 	}
+// 	ordered := orderMoves(moves, engine.Move{}, false)
+// 	bestScore := negInf
+// 	bestChild := pos
+// 	for _, m := range ordered {
+// 		child := engine.ApplyMove(pos, color, m)
+// 		score := int(PSTEvalColor(child, color, w))
+// 		if score > bestScore {
+// 			bestScore = score
+// 			bestChild = child
+// 		}
+// 	}
+// 	return PVLeaf(bestChild, color.Opponent(), depth-1, w)
+// }
+
+// PVLeaf runs a full Negamax search and extracts the leaf position
+// at the end of the Principal Variation — used by the true TD-Leaf trainer.
 func PVLeaf(pos engine.Position, color engine.Color, depth int, w *PSTWeights) engine.Position {
 	if depth == 0 {
 		return pos
 	}
-	moves := engine.LegalMoves(pos, color)
-	if len(moves) == 0 {
-		return pos
-	}
-	ordered := orderMoves(moves, engine.Move{}, false)
-	bestScore := negInf
-	bestChild := pos
-	for _, m := range ordered {
-		child := engine.ApplyMove(pos, color, m)
-		score := int(PSTEvalColor(child, color, w))
-		if score > bestScore {
-			bestScore = score
-			bestChild = child
+
+	// 1. Setup a fresh TT and a generous deadline (no time limit for offline training)
+	tt := make(map[uint64]ttEntry)
+	deadline := time.Now().Add(1 * time.Hour)
+
+	// 2. Run the actual Alpha-Beta search to populate the TT
+	// We pass 'nil' for stats since we don't need telemetry during training
+	negamaxSearch(pos, color, depth, 0, negInf, posInf, w, tt, deadline, nil)
+
+	// 3. Extract the Principal Variation by walking down the TT
+	currPos := pos
+	currColor := color
+
+	for d := 0; d < depth; d++ {
+		hash := ZobristHash(currPos, currColor)
+		entry, ok := tt[hash]
+
+		// If the node isn't in the TT, or has no best move (Terminal state), stop.
+		if !ok || entry.bestMove.From == 0 {
+			break
 		}
+
+		// Apply the best move to step deeper into the Principal Variation
+		currPos = engine.ApplyMove(currPos, currColor, entry.bestMove)
+		currColor = currColor.Opponent()
 	}
-	return PVLeaf(bestChild, color.Opponent(), depth-1, w)
+
+	// Return the exact leaf node evaluated at the bottom of the optimal path
+	return currPos
 }
