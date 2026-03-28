@@ -6,6 +6,7 @@ import (
 
 	"github.com/limaflucas/heuristic_checkers/internal/api"
 	"github.com/limaflucas/heuristic_checkers/internal/engine"
+	"github.com/limaflucas/heuristic_checkers/internal/manager"
 )
 
 func main() {
@@ -15,7 +16,8 @@ func main() {
 	}
 
 	store := engine.NewGameStore()
-	srv := api.NewServer(addr, store)
+	mgr := manager.NewManager(store)
+	srv := api.NewServer(addr, store, mgr)
 
 	log.Printf("Checkers API server starting on %s", addr)
 	if err := srv.ListenAndServe(); err != nil {

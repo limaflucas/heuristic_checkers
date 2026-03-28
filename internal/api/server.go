@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/limaflucas/heuristic_checkers/internal/engine"
+	"github.com/limaflucas/heuristic_checkers/internal/manager"
 )
 
 // NewServer builds and returns a configured *http.Server.
-func NewServer(addr string, store *engine.GameStore) *http.Server {
-	h := NewHandlers(store)
+func NewServer(addr string, store *engine.GameStore, mgr *manager.Manager) *http.Server {
+	h := NewHandlers(store, mgr)
 	mux := http.NewServeMux()
 
 	// Exact match: list + create games.
@@ -28,6 +29,8 @@ func NewServer(addr string, store *engine.GameStore) *http.Server {
 	// Wildcard: game-specific endpoints.
 	mux.HandleFunc("/api/v1/games/", func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.Method == http.MethodDelete && r.URL.Path != "/api/v1/games/":
+			h.DeleteGame(w, r)
 		case r.Method == http.MethodPost && hasSuffix(r.URL.Path, "/moves"):
 			h.MakeMove(w, r)
 		case r.Method == http.MethodGet && hasSuffix(r.URL.Path, "/board"):
@@ -42,6 +45,27 @@ func NewServer(addr string, store *engine.GameStore) *http.Server {
 			h.WatchGame(w, r)
 		default:
 			writeError(w, http.StatusNotFound, "route not found")
+		}
+	})
+
+	// Manager endpoints.
+	mux.HandleFunc("/api/v1/manager", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.ListManagerSessions(w, r)
+		case http.MethodPost:
+			h.StartManagerSession(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
+	})
+	
+	mux.HandleFunc("/api/v1/manager/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.GetManagerSession(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	})
 

@@ -390,6 +390,13 @@ func (s *GameStore) Get(id string) (*Game, bool) {
 	return g, ok
 }
 
+// Delete removes a game by ID (used by the manager to clear completed memory).
+func (s *GameStore) Delete(id string) {
+	s.mu.Lock()
+	delete(s.games, id)
+	s.mu.Unlock()
+}
+
 // List returns a summary of every game, ordered by start time (newest first).
 func (s *GameStore) List() []GameSummary {
 	s.mu.RLock()

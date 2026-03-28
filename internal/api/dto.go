@@ -10,6 +10,7 @@ type NewGameRequest struct {
 	BlackPlayer string `json:"black_player"`
 	RedBot      string `json:"red_bot,omitempty"`
 	BlackBot    string `json:"black_bot,omitempty"`
+	HumanSpeed  bool   `json:"human_speed"`
 }
 
 // MoveRequest uses ACF square numbers (1-32).

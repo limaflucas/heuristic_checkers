@@ -9,15 +9,17 @@ import (
 
 	"github.com/limaflucas/heuristic_checkers/internal/bot"
 	"github.com/limaflucas/heuristic_checkers/internal/engine"
+	"github.com/limaflucas/heuristic_checkers/internal/manager"
 )
 
 // Handlers holds all HTTP handler dependencies.
 type Handlers struct {
-	store *engine.GameStore
+	store   *engine.GameStore
+	manager *manager.Manager
 }
 
-func NewHandlers(store *engine.GameStore) *Handlers {
-	return &Handlers{store: store}
+func NewHandlers(store *engine.GameStore, mgr *manager.Manager) *Handlers {
+	return &Handlers{store: store, manager: mgr}
 }
 
 // ---- GET /api/v1/games ----
@@ -41,11 +43,16 @@ func (h *Handlers) CreateGame(w http.ResponseWriter, r *http.Request) {
 	g := h.store.Create(req.RedPlayer, req.BlackPlayer)
 
 	// Spawn in-process bots if requested.
+	var delay time.Duration
+	if req.HumanSpeed {
+		delay = 250 * time.Millisecond
+	}
+
 	if algo := bot.ByName(req.RedBot); algo != nil {
-		go bot.Run(g, engine.Red, algo, 400*time.Millisecond)
+		go bot.Run(g, engine.Red, algo, delay)
 	}
 	if algo := bot.ByName(req.BlackBot); algo != nil {
-		go bot.Run(g, engine.Black, algo, 600*time.Millisecond)
+		go bot.Run(g, engine.Black, algo, delay)
 	}
 
 	snap := g.Snapshot()
@@ -355,4 +362,75 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, ErrorResponse{Error: msg})
+}
+
+// ==== DELETE /api/v1/games/{id} ====
+
+func (h *Handlers) DeleteGame(w http.ResponseWriter, r *http.Request) {
+	g, ok := h.gameFromPath(w, r)
+	if !ok {
+		return
+	}
+	snap := g.Snapshot()
+	h.store.Delete(g.ID)
+	// Return the final state so the caller gets the statistics before deletion.
+	writeJSON(w, http.StatusOK, snap)
+}
+
+// ==== MANAGER ENDPOINTS ====
+
+func (h *Handlers) ListManagerSessions(w http.ResponseWriter, r *http.Request) {
+	sessions := h.manager.List()
+
+	// Enrich each session with the current game's elapsed seconds so the
+	// frontend can reset its per-game timer when a new match starts.
+	type enrichedSession struct {
+		*manager.Status
+		CurrentGameElapsedSec float64 `json:"current_game_elapsed_sec"`
+	}
+	enriched := make([]enrichedSession, len(sessions))
+	for i, s := range sessions {
+		var elapsed float64
+		if s.CurrentGameID != "" {
+			if g, ok := h.store.Get(s.CurrentGameID); ok {
+				snap := g.Snapshot()
+				elapsed = snap.ElapsedSec
+			}
+		}
+		enriched[i] = enrichedSession{Status: s, CurrentGameElapsedSec: elapsed}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"total":    len(enriched),
+		"sessions": enriched,
+	})
+}
+
+func (h *Handlers) StartManagerSession(w http.ResponseWriter, r *http.Request) {
+	var cfg manager.Config
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON config")
+		return
+	}
+	// Give the session an ID
+	sessionID := fmt.Sprintf("mgr_%d", time.Now().UnixNano())
+	status := h.manager.Start(sessionID, cfg)
+	
+	writeJSON(w, http.StatusCreated, status)
+}
+
+func (h *Handlers) GetManagerSession(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 { // /api/v1/manager/{id}
+		writeError(w, http.StatusBadRequest, "missing manager session id")
+		return
+	}
+	id := parts[4]
+	
+	status, ok := h.manager.Get(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "manager session not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
 }
