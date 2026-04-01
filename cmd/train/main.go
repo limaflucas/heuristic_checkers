@@ -32,12 +32,16 @@ func main() {
 	depth := flag.Int("depth", 2, "PV search depth for leaf extraction")
 	out := flag.String("out", "weights/pst_weights.json", "output weights file")
 	csvOut := flag.String("csv", "training_log.csv", "CSV log path (game, wins, draws, losses)")
+	seed := flag.Int64("seed", 42, "random seed for reproducibility (0 for random)")
 	flag.Parse()
 
-	log.Printf("TD-Leaf trainer: games=%d α=%.4f λ=%.4f PV-depth=%d", *games, *alpha, *lambda, *depth)
+	if *seed == 0 {
+		*seed = time.Now().UnixNano()
+	}
+	log.Printf("TD-Leaf trainer: games=%d α=%.4f λ=%.4f PV-depth=%d seed=%d", *games, *alpha, *lambda, *depth, *seed)
 
 	w := gameai.LoadPSTWeights(*out)
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New(rand.NewSource(*seed))
 
 	// Initialise CSV log (append mode — creates file with header if new).
 	csvFile, csvWriter := initCSVLog(*csvOut)

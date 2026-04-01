@@ -3,6 +3,7 @@ package gameai
 import (
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/limaflucas/heuristic_checkers/internal/engine"
@@ -86,7 +87,30 @@ func (n *mctsNode) expand() *mctsNode {
 
 // ── Rollout ───────────────────────────────────────────────────────────────────
 
-var mctsRNG = rand.New(rand.NewSource(time.Now().UnixNano()))
+var (
+	mctsRNG      *rand.Rand
+	mctsRNGOnce  sync.Once
+	mctsRNGMutex sync.Mutex
+)
+
+// initMCTSRNG ensures the RNG is initialized exactly once with a default seed (42).
+func initMCTSRNG() {
+	mctsRNGOnce.Do(func() {
+		mctsRNG = rand.New(rand.NewSource(42))
+	})
+}
+
+// SetMCTSSeed allows overriding the default MCTS seed for reproducibility.
+func SetMCTSSeed(seed int64) {
+	mctsRNGMutex.Lock()
+	defer mctsRNGMutex.Unlock()
+	mctsRNG = rand.New(rand.NewSource(seed))
+}
+
+func getMCTSRNG() *rand.Rand {
+	initMCTSRNG()
+	return mctsRNG
+}
 
 // rollout simulates a game from pos using an ε-greedy policy guided by PST eval.
 // Returns the rollout outcome from Red's perspective: 1.0 win, 0.5 draw, 0.0 loss.
@@ -101,10 +125,11 @@ func rollout(pos engine.Position, color engine.Color, w *PSTWeights, depth int) 
 			return 1.0
 		}
 
+		rng := getMCTSRNG()
 		var chosen engine.Move
-		if mctsRNG.Float64() < mctsEpsilon {
+		if rng.Float64() < mctsEpsilon {
 			// Random exploration
-			chosen = moves[mctsRNG.Intn(len(moves))]
+			chosen = moves[rng.Intn(len(moves))]
 		} else {
 			// PST-guided: pick best move for the current player (perspective-aware).
 			bestScore := math.Inf(-1)

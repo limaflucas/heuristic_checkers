@@ -622,10 +622,10 @@ function setType(side, type, btn) {
   const input = document.getElementById(`${side}-name-input`);
   if (type === 'human') {
     input.readOnly = false;
-    if (['BFS Bot', 'DFS Bot', 'Negamax Bot'].includes(input.value)) input.value = '';
+    if (['BFS Bot', 'DFS Bot', 'Negamax Bot', 'PVS Bot', 'MCTS Bot'].includes(input.value)) input.value = '';
     input.placeholder = 'Player name';
   } else {
-    const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot', mcts: 'MCTS Bot' };
+    const names = { bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot', pvs: 'PVS Bot', mcts: 'MCTS Bot' };
     input.value = names[type] || type;
     input.readOnly = true;
   }
@@ -648,8 +648,9 @@ function toggleMultiInfo() {
 }
 
 async function submitNewGame() {
-  const redName = document.getElementById('red-name-input').value.trim() || (playerTypes.red !== 'human' ? (playerTypes.red === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Red Player');
-  const blackName = document.getElementById('black-name-input').value.trim() || (playerTypes.black !== 'human' ? (playerTypes.black === 'bfs' ? 'BFS Bot' : 'DFS Bot') : 'Black Player');
+  const getBotName = (type) => ({ bfs: 'BFS Bot', dfs: 'DFS Bot', negamax: 'Negamax Bot', pvs: 'PVS Bot', mcts: 'MCTS Bot' }[type] || 'Bot');
+  const redName = document.getElementById('red-name-input').value.trim() || (playerTypes.red !== 'human' ? getBotName(playerTypes.red) : 'Red Player');
+  const blackName = document.getElementById('black-name-input').value.trim() || (playerTypes.black !== 'human' ? getBotName(playerTypes.black) : 'Black Player');
 
   const matchType = document.getElementById('match-type-select').value;
   const isManager = matchType !== 'single';

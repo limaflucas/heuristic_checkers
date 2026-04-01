@@ -26,6 +26,8 @@ func ByName(name string) Algorithm {
 		return gameai.NegamaxChooseMove
 	case "mcts":
 		return gameai.MCTSChooseMove
+	case "pvs":
+		return gameai.PVSChooseMove
 	}
 	return nil
 }
