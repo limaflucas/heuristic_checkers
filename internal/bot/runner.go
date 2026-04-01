@@ -28,6 +28,8 @@ func ByName(name string) Algorithm {
 		return gameai.MCTSChooseMove
 	case "pvs":
 		return gameai.PVSChooseMove
+	case "random":
+		return gameai.RandomChooseMove
 	}
 	return nil
 }
