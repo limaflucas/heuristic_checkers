@@ -165,8 +165,108 @@ def plot_learning_curve(log_path: str, out_dir: str) -> None:
     print(f"Saved: {out_path}")
     plt.close(fig)
 
+# ── Part 3: New Visualizations ────────────────────────────────────────────────
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+def plot_sa_cooling_curve(log_path: str, out_dir: str = "reports") -> None:
+    """Plot SA cooling curve: Energy and best energy vs Temp over iterations."""
+    df = pd.read_csv(log_path)
+    df.columns = [c.lower().strip() for c in df.columns]
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    ax1.plot(df['iteration'], df['energy'], color='#3498db', label='Energy', alpha=0.7)
+    ax1.plot(df['iteration'], df['best_energy'], color='#2980b9', label='Best Energy', linewidth=2)
+    ax1.set_xlabel('Iteration', fontsize=12)
+    ax1.set_ylabel('Energy', color='#2980b9', fontsize=12)
+    ax1.tick_params(axis='y', labelcolor='#2980b9')
+
+    ax2 = ax1.twinx()
+    ax2.plot(df['iteration'], df['temp'], color='#e74c3c', linestyle='--', label='Temperature', linewidth=2)
+    ax2.set_ylabel('Temperature', color='#e74c3c', fontsize=12)
+    ax2.tick_params(axis='y', labelcolor='#e74c3c')
+
+    fig.suptitle('Simulated Annealing: Energy and Cooling Schedule', fontsize=14)
+    
+    # Combine legends
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper right')
+
+    plt.tight_layout()
+    out_path = os.path.join(out_dir, "sa_cooling_curve.png")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {out_path}")
+    plt.close(fig)
+
+def plot_search_efficiency(csv_path: str, out_dir: str = "reports") -> None:
+    """Plot search efficiency comparing Negamax and PVS."""
+    df = pd.read_csv(csv_path)
+    
+    fig, ax1 = plt.subplots(figsize=(8, 6))
+    
+    bar_width = 0.4
+    index = np.arange(len(df['Algorithm']))
+    
+    # Left Axis: Nodes Expanded (Bars)
+    bars1 = ax1.bar(index, df['NodesExpanded'], bar_width, color='#3498db', label='Nodes Expanded')
+    ax1.set_xlabel('Algorithm', fontsize=12)
+    ax1.set_ylabel('Nodes Expanded', color='#3498db', fontsize=12)
+    ax1.set_xticks(index)
+    ax1.set_xticklabels(df['Algorithm'], fontsize=11)
+    ax1.tick_params(axis='y', labelcolor='#3498db')
+    
+    # Right Axis: Max Depth (Line/Points)
+    ax2 = ax1.twinx()
+    line1 = ax2.plot(index, df['MaxDepth'], color='#e74c3c', marker='o', markersize=8, linestyle='-', linewidth=2, label='Max Depth')
+    ax2.set_ylabel('Max Depth Reached', color='#e74c3c', fontsize=12)
+    ax2.tick_params(axis='y', labelcolor='#e74c3c')
+    
+    # Set y-axis limits to ensure line plots slightly above bars visually
+    ax2.set_ylim(0, max(df['MaxDepth']) * 1.2)
+    
+    fig.suptitle('Search Efficiency Comparison: Negamax vs PVS', fontsize=14)
+    
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
+
+    plt.tight_layout()
+    out_path = os.path.join(out_dir, "search_efficiency.png")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {out_path}")
+    plt.close(fig)
+
+def plot_tournament_matrix(csv_path: str, out_dir: str = "reports") -> None:
+    """Plot the tournament results as a heatmap showing P1 Win Rate."""
+    df = pd.read_csv(csv_path)
+    
+    total_games = df['P1_Wins'] + df['P2_Wins'] + df['Draws']
+    df['WinRate'] = (df['P1_Wins'] + 0.5 * df['Draws']) / total_games
+    
+    matrix = df.pivot(index="Player1", columns="Player2", values="WinRate")
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    sns.heatmap(
+        matrix, 
+        annot=True, 
+        fmt=".0%", 
+        cmap="viridis", 
+        cbar_kws={'label': 'Win Rate (inc. 0.5 for draws)'},
+        linewidths=.5,
+        ax=ax
+    )
+    
+    ax.set_title("Tournament Results (Row vs Column Win Rate)", fontsize=14, pad=15)
+    ax.set_ylabel("Player 1", fontsize=12)
+    ax.set_xlabel("Player 2", fontsize=12)
+    
+    plt.tight_layout()
+    out_path = os.path.join(out_dir, "tournament_matrix.png")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {out_path}")
+    plt.close(fig)
+
 
 def main():
     parser = argparse.ArgumentParser(description="Checkers AI metric visualizations")
@@ -190,6 +290,17 @@ def main():
     else:
         print(f"WARN: training log not found at '{args.log}' — skipping learning curve.")
 
+    sa_log = "training_sa_log.csv"
+    if os.path.exists(sa_log):
+        plot_sa_cooling_curve(sa_log, args.out)
+
+    efficiency_csv = "search_efficiency.csv"
+    if os.path.exists(efficiency_csv):
+        plot_search_efficiency(efficiency_csv, args.out)
+
+    tournament_csv = "tournament_results.csv"
+    if os.path.exists(tournament_csv):
+        plot_tournament_matrix(tournament_csv, args.out)
 
 if __name__ == "__main__":
     main()
