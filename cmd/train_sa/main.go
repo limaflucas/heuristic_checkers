@@ -104,9 +104,10 @@ func calculateEnergy(w *gameai.PSTWeights, rng *rand.Rand) float64 {
 			
 			var move engine.Move
 			if turn == botColor {
-				move = gameai.TrainingChooseMove(pos, turn, 2, w)
+				move = fastTrainingSearch(pos, turn, 2, w)
 			} else {
-				move = gameai.TrainingChooseMove(pos, turn, baselineDepth, gameai.DefaultPSTWeights())
+				// Use an empty PST struct for the baseline bot (no heuristic bonuses)
+				move = fastTrainingSearch(pos, turn, baselineDepth, &gameai.PSTWeights{})
 			}
 			pos = engine.ApplyMove(pos, turn, move)
 			turn = turn.Opponent()
@@ -169,4 +170,62 @@ func appendCSVRow(w *csv.Writer, iter int, temp, energy, best float64) {
 		fmt.Sprintf("%.4f", best),
 	})
 	w.Flush()
+}
+
+// fastTrainingSearch uses a fixed-depth Alpha-Beta search to generate games quickly.
+func fastTrainingSearch(pos engine.Position, color engine.Color, depth int, w *gameai.PSTWeights) engine.Move {
+	moves := engine.LegalMoves(pos, color)
+	if len(moves) == 0 {
+		return engine.Move{}
+	}
+	if len(moves) == 1 {
+		return moves[0]
+	}
+
+	bestMove := moves[0]
+	bestScore := -1 << 29
+	alpha := -1 << 29
+	beta := 1 << 29
+
+	for _, m := range moves {
+		child := engine.ApplyMove(pos, color, m)
+		score := -trainingAlphaBeta(child, color.Opponent(), depth-1, -beta, -alpha, w)
+
+		if score > bestScore {
+			bestScore = score
+			bestMove = m
+		}
+		if score > alpha {
+			alpha = score
+		}
+	}
+	return bestMove
+}
+
+func trainingAlphaBeta(pos engine.Position, color engine.Color, depth, alpha, beta int, w *gameai.PSTWeights) int {
+	if depth == 0 {
+		return int(gameai.PSTEvalColor(pos, color, w))
+	}
+
+	moves := engine.LegalMoves(pos, color)
+	if len(moves) == 0 {
+		return -32000
+	}
+
+	bestScore := -1 << 29
+	for _, m := range moves {
+		child := engine.ApplyMove(pos, color, m)
+		score := -trainingAlphaBeta(child, color.Opponent(), depth-1, -beta, -alpha, w)
+
+		if score > bestScore {
+			bestScore = score
+		}
+		if score > alpha {
+			alpha = score
+		}
+		if alpha >= beta {
+			break
+		}
+	}
+	return bestScore
 }
